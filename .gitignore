@@ -1,0 +1,29 @@
+# Private data must never be tracked in this public repo.
+# Real genomes and downloaded reference data live in the private workspace envelope.
+genome_*
+*.23andme*
+*23andme*.txt
+*ancestry*.txt
+*.vcf
+*.vcf.gz
+*.zip
+data/
+refdata/
+sandbox/
+*.duckdb
+*.sqlite
+*.sqlite3
+*.db
+
+# Python
+__pycache__/
+*.pyc
+.venv/
+.pytest_cache/
+.ruff_cache/
+
+# Node
+node_modules/
+dist/
+.env
+.env.*
