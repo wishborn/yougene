@@ -1,0 +1,1 @@
+"""Offline annotation (implementation pending)."""
