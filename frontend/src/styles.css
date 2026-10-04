@@ -1,0 +1,12 @@
+@import "tailwindcss";
+@import "@particle-academy/react-fancy/styles.css";
+@custom-variant dark (&:where(.dark, .dark *));
+@source "../node_modules/@particle-academy/react-fancy/dist/**/*.{js,cjs,mjs}";
+@source "../node_modules/@particle-academy/fancy-grid/dist/**/*.js";
+
+@theme {
+  --color-brand: #5266bd;
+  --color-brand-contrast: #a7b8ff;
+}
+
+body { margin: 0; font-family: ui-sans-serif, system-ui, sans-serif; }
