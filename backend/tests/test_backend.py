@@ -81,3 +81,35 @@ def test_version(capsys):
     main(["version"])
     assert capsys.readouterr().out.strip() == __version__
     assert duckdb.__version__
+
+
+def test_configurable_allowed_hosts(monkeypatch):
+    monkeypatch.setenv("YOUGENE_ALLOWED_HOSTS", "yougene.gen")
+    with TestClient(create_app()) as client:
+        assert (
+            client.get("/api/health", headers={"host": "yougene.gen:443"}).status_code
+            == 200
+        )
+        assert (
+            client.get("/api/health", headers={"host": "localhost"}).status_code == 200
+        )
+        assert (
+            client.get("/api/health", headers={"host": "yougene.gen.evil"}).status_code
+            == 400
+        )
+    monkeypatch.delenv("YOUGENE_ALLOWED_HOSTS")
+    with TestClient(create_app()) as client:
+        assert (
+            client.get("/api/health", headers={"host": "yougene.gen"}).status_code
+            == 400
+        )
+
+
+@pytest.mark.parametrize(
+    "value", ["*", "*.gen", "yougene.gen:443", "https://yougene.gen"]
+)
+def test_allowed_host_setting_rejects_patterns(monkeypatch, value):
+    monkeypatch.setenv("YOUGENE_ALLOWED_HOSTS", value)
+    with pytest.raises(ValueError, match="literal hostnames"):
+        with TestClient(create_app()):
+            pass
