@@ -11,7 +11,19 @@ NAME = re.compile(
 )
 MARKER = b"# YOUGENE SYNTHETIC FIXTURE - not a real person"
 FIXTURES = Path("backend/tests/fixtures/synthetic")
-ROW = re.compile(rb"^(?:rs\d+|i\d+)\t\w+\t\d+\t[ACGTDI-]{1,2}$")
+# Raw genotype rows in the common consumer formats.
+ROW = re.compile(
+    rb"^(?:"
+    # 23andMe: id, chrom, pos, genotype
+    rb"(?:rs\d+|i\d+)\t\w+\t\d+\t[ACGTDI-]{1,2}"
+    # AncestryDNA: id, chrom, pos, allele1, allele2
+    rb"|(?:rs\d+|i\d+|VG\w+)\t\w+\t\d+\t[ACGTDI0-]\t[ACGTDI0-]"
+    # MyHeritage / FTDNA CSV: "id","chrom","pos","genotype"
+    rb'|"?(?:rs\d+|i\d+)"?,"?\w+"?,"?\d+"?,"?[ACGTDI-]{1,2}"?'
+    # VCF data line: chrom, pos, id, ref, alt, then anything
+    rb"|(?:chr)?[0-9XYMT]{1,2}\t\d+\t[^\t]+\t[ACGTN]+\t[ACGTN.,<>*\[\]:\w]+\t.*"
+    rb")$"
+)
 
 
 def check_file(path: Path, root: Path) -> str | None:
