@@ -55,7 +55,14 @@ async def upload_sample(
     relationship: Annotated[str | None, Query(max_length=60)] = None,
     on_duplicate: Literal["reject", "replace"] = "reject",
 ):
-    """Upload a raw data file as the request body (application/octet-stream)."""
+    """Upload a raw data file as the request body (application/octet-stream).
+
+    Requiring that content type means a cross-site HTML form (which can only
+    send text/plain, urlencoded or multipart) can never reach this endpoint.
+    """
+    content_type = request.headers.get("content-type", "").split(";")[0].strip()
+    if content_type != "application/octet-stream":
+        raise HTTPException(415, "Send the file as application/octet-stream.")
     workdir = store.tmp_dir() / uuid.uuid4().hex
     workdir.mkdir(parents=True)
     upload = workdir / "upload"

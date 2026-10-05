@@ -8,6 +8,7 @@ from yougene.app import create_app
 from yougene.jobs import jobs
 
 FIXTURES = Path(__file__).parent / "fixtures/synthetic"
+OCTET = {"content-type": "application/octet-stream"}
 
 
 @pytest.fixture
@@ -75,7 +76,9 @@ def test_reimport_same_file(client):
 
 
 def test_failed_import_reports_safely(client):
-    response = client.post("/api/samples", content=b"not a genome file\n")
+    response = client.post(
+        "/api/samples", content=b"not a genome file\n", headers=OCTET
+    )
     jobs.wait_idle()
     job = client.get(f"/api/jobs/{response.json()['job_id']}").json()
     assert job["state"] == "failed"
@@ -85,7 +88,7 @@ def test_failed_import_reports_safely(client):
 
 
 def test_empty_upload(client):
-    assert client.post("/api/samples", content=b"").status_code == 400
+    assert client.post("/api/samples", content=b"", headers=OCTET).status_code == 400
 
 
 def test_upload_size_limit(client, monkeypatch):
@@ -162,3 +165,55 @@ def test_delete_all_requires_phrase(client):
     )
     assert client.get("/api/samples").json()["samples"] == []
     assert not any((store.root() / "samples").iterdir())
+
+
+def test_upload_needs_octet_stream(client):
+    body = (FIXTURES / "male.txt").read_bytes()
+    for content_type in ["text/plain", "application/x-www-form-urlencoded", None]:
+        headers = {"content-type": content_type} if content_type else {}
+        response = client.post("/api/samples", content=body, headers=headers)
+        assert response.status_code == 415
+    assert not any(store.tmp_dir().iterdir())
+
+
+@pytest.mark.parametrize(
+    ("origin", "status"),
+    [
+        ("https://evil.example", 403),
+        ("http://127.0.0.1.evil.example", 403),
+        ("null", 403),
+        ("http://127.0.0.1:5190", 202),
+        ("http://localhost:5180", 202),
+    ],
+)
+def test_cross_site_writes_are_refused(client, origin, status):
+    response = client.post(
+        "/api/samples",
+        content=(FIXTURES / "male.txt").read_bytes(),
+        headers={**OCTET, "origin": origin},
+    )
+    assert response.status_code == status
+    jobs.wait_idle()
+
+
+def test_cross_site_delete_refused(client):
+    response = client.request(
+        "DELETE",
+        "/api/data",
+        json={"confirm": "DELETE ALL"},
+        headers={"origin": "https://evil.example"},
+    )
+    assert response.status_code == 403
+
+
+def test_gen_origin_allowed_when_configured(monkeypatch, tmp_path):
+    monkeypatch.setenv("YOUGENE_DATA_DIR", str(tmp_path / "data"))
+    monkeypatch.setenv("YOUGENE_ALLOWED_HOSTS", "yougene.gen")
+    with TestClient(create_app(), base_url="http://127.0.0.1") as c:
+        response = c.request(
+            "DELETE",
+            "/api/data",
+            json={"confirm": "DELETE ALL"},
+            headers={"origin": "https://yougene.gen"},
+        )
+    assert response.status_code == 204

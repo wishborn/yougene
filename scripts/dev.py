@@ -102,7 +102,10 @@ def main() -> int:
     for handle in (sys.stdout, sys.stderr):
         if hasattr(handle, "reconfigure"):
             handle.reconfigure(encoding="utf-8", errors="replace")
-    print(f"[dev] Vite loopback port {port}; API loopback port 8765", flush=True)
+    api_port = int(os.environ.get("YOUGENE_API_PORT", "8765"))
+    if not 1 <= api_port <= 65535:
+        raise ValueError("YOUGENE_API_PORT must be between 1 and 65535")
+    print(f"[dev] Vite loopback port {port}; API loopback port {api_port}", flush=True)
     python = (
         ROOT / ".venv" / ("Scripts/python.exe" if os.name == "nt" else "bin/python")
     )
@@ -114,9 +117,16 @@ def main() -> int:
             file=sys.stderr,
         )
         return 1
+    # The Genie site's browser origin is https://yougene.gen; the API must
+    # accept it as an Origin for uploads and deletes.
+    hosts = {h for h in os.environ.get("YOUGENE_ALLOWED_HOSTS", "").split(",") if h}
+    os.environ["YOUGENE_ALLOWED_HOSTS"] = ",".join(sorted(hosts | {"yougene.gen"}))
     return supervise(
         [
-            ("api", [str(python), "-m", "yougene.cli", "serve", "--port", "8765"]),
+            (
+                "api",
+                [str(python), "-m", "yougene.cli", "serve", "--port", str(api_port)],
+            ),
             (
                 "vite",
                 [
