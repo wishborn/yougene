@@ -31,6 +31,7 @@ export function useSetConsent(): (name: string, granted: boolean) => Promise<voi
       // Withdrawn: drop cached health results from memory rather than refetch.
       queryClient.removeQueries({ queryKey: ["clinvar"] });
       queryClient.removeQueries({ queryKey: ["coverage"] });
+      queryClient.removeQueries({ queryKey: ["gene"] });
     }
     queryClient.setQueryData(["consent"], next);
     // Views whose cache key doesn't include consent.

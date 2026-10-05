@@ -3,6 +3,7 @@ import { keepPreviousData, useQuery } from "@tanstack/react-query";
 import { Badge, Button, Callout, Checkbox, Modal, Pagination, Switch } from "@particle-academy/react-fancy";
 import { findingsApi, genomeApi, type ClinvarFinding } from "../api";
 import { useConsent, useSetConsent } from "../consent";
+import { GeneLookup } from "./GeneLookup";
 
 const TOPICS: Record<string, { title: string; explain: string }> = {
   apoe: {
@@ -196,6 +197,7 @@ export function HealthPanel({ sampleId }: { sampleId: string }) {
       <p className="text-sm text-zinc-500" data-testid="health-total">{total.toLocaleString()} findings</p>
       <ul className="space-y-3">{(findings.data?.rows ?? []).map(row => <FindingCard key={`${row.vcv_id}-${row.probe_id}`} row={row} coverage={coverage.data?.genes} />)}</ul>
       <Pagination page={page + 1} totalPages={Math.max(1, Math.ceil(total / 20))} onPageChange={p => setPage(p - 1)} />
+      <GeneLookup sampleId={sampleId} />
       <Callout color="zinc">
         Confirm anything important with a clinical lab and a genetics professional before making decisions.
       </Callout>

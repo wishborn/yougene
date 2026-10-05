@@ -117,6 +117,9 @@ try {
     await page.getByRole("dialog").getByRole("button", { name: "Show results" }).click();
     await page.getByTestId("health-total").waitFor();
     await page.getByTestId("coverage-note").first().waitFor();
+    await page.getByLabel("Gene symbol").fill("GENE2");
+    await page.getByRole("button", { name: "Look up" }).click();
+    await page.getByTestId("gene-view").waitFor();
     await page.getByRole("button", { name: /Show APOE/ }).click();
     await page.getByRole("dialog").getByText("I understand and want to see these results").click();
     await page.getByRole("dialog").getByRole("button", { name: "Show results" }).click();

@@ -91,6 +91,10 @@ For the browser smoke test, invented reference files lined up with the synthetic
 
 Curated, array-callable CPIC rules for CYP2C19, CYP2C9, VKORC1, SLCO1B1, DPYD, TPMT, NUDT15 and CYP3A5 (`analysis/pgx.py`). Each defining allele is checked against its ClinVar record's plus-strand alleles; a gene gets a phenotype only when every defining position was read. Results are partial (arrays can't phase or see copy number; CYP2D6 isn't reported) and are never dosing advice.
 
+## Gene lookup
+
+On the Health tab (after opt-in), look up any gene: how many single-letter variants ClinVar classes as pathogenic or likely pathogenic in it, how many of those positions your file read and what was read there, and any you carry, with the reminder that unread variants and other kinds of change can't be ruled out. Sensitive genes need their topic opt-in (`GET /api/samples/{id}/gene/{symbol}`).
+
 ## Variant detail
 
 Clicking a probe in the calls grid opens everything known about that position: the call(s), ClinVar records with how many copies you carry (after opt-in; sensitive topics need their own), trait associations, and any curated trait or medicine rule that uses it (`GET /api/samples/{id}/variant?chrom=&pos=`).

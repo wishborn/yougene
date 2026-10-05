@@ -234,3 +234,15 @@ export const snpediaApi = {
   status: () => request<{ installed: boolean; license: string; snps?: number; genotype_pages?: number; updated_at?: string }>("/api/snpedia"),
   install: () => request<{ job_id: string }>("/api/snpedia/install", { method: "POST" }),
 };
+
+export type GeneView = {
+  gene: string; sensitive_topic: string | null; known_pathogenic_snvs: number; tested: number;
+  carried: { chrom: string; pos: number; ref: string; alt: string; vcv_id: number; sig_cat: string; stars: number; alleles: string }[];
+  tested_positions: { chrom: string; pos: number; ref: string; alt: string; vcv_id: number; rsid: string | null;
+    sig_cat: string; stars: number; probe_id: string; alleles: string }[];
+  region: { chrom: string; start: number; end: number } | null;
+};
+
+export const geneApi = {
+  get: (id: string, symbol: string) => request<GeneView>(`/api/samples/${id}/gene/${encodeURIComponent(symbol)}`),
+};
