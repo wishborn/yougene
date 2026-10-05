@@ -232,3 +232,59 @@ def build_cytoband(con, path: Path) -> dict:
 
 
 BUILDERS = {"clinvar": build_clinvar, "gwas": build_gwas, "cytoband": build_cytoband}
+
+
+def _chrom_name(name: str) -> str | None:
+    name = name.removeprefix("chr")
+    name = "MT" if name in ("M", "MT") else name
+    return name if name in CHROM_ORDER else None
+
+
+def build_liftover(con, path: Path, workdir: Path) -> dict:
+    """Parse a UCSC chain file (hg38 -> hg19) into aligned blocks:
+    ``liftover_chain(t_chrom, t_start, t_end, q_chrom, q_start, q_strand)``
+    with 0-based half-open target (GRCh38) intervals and the matching query
+    (GRCh37) start, already converted to the forward strand when the chain
+    is on the reverse strand (q_strand '-': position = q_start - offset)."""
+    import gzip
+
+    blocks = workdir / "chain_blocks.csv"
+    count = 0
+    with gzip.open(path, "rt") as source, blocks.open("w", encoding="utf-8") as out:
+        t_chrom = q_chrom = None
+        for line in source:
+            parts = line.split()
+            if not parts:
+                continue
+            if parts[0] == "chain":
+                t_chrom, t = _chrom_name(parts[2]), int(parts[5])
+                q_chrom, q_size, q_strand, q = (
+                    _chrom_name(parts[7]), int(parts[8]), parts[9], int(parts[10]),
+                )  # fmt: skip
+                continue
+            size = int(parts[0])
+            if t_chrom and q_chrom:
+                if q_strand == "+":
+                    q_first = q
+                else:  # reverse strand: forward 0-based position of the first base
+                    q_first = q_size - q - 1
+                out.write(f"{t_chrom},{t},{t + size},{q_chrom},{q_first},{q_strand}\n")
+                count += 1
+            if len(parts) == 3:
+                t += size + int(parts[1])
+                q += size + int(parts[2])
+    con.execute(
+        """
+        CREATE OR REPLACE TABLE liftover_chain AS
+        SELECT * FROM read_csv(?, header = false, auto_detect = false, columns = {
+            't_chrom': 'VARCHAR', 't_start': 'UBIGINT', 't_end': 'UBIGINT',
+            'q_chrom': 'VARCHAR', 'q_first': 'UBIGINT', 'q_strand': 'VARCHAR'})
+        ORDER BY t_chrom, t_start
+        """,
+        [str(blocks)],
+    )
+    blocks.unlink()
+    return {"blocks": count}
+
+
+BUILDERS["liftover"] = build_liftover

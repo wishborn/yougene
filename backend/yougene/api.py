@@ -19,7 +19,9 @@ from yougene.refdata.sources import SOURCES
 
 router = APIRouter(prefix="/api")
 
-MAX_UPLOAD_BYTES = 200 * 1024 * 1024
+MAX_UPLOAD_BYTES = 2 * 1024 * 1024 * 1024  # sequencing VCFs are large
+# Keep this much disk free while receiving and importing a file.
+MIN_FREE_BYTES = 300 * 1024 * 1024
 DELETE_ALL_PHRASE = "DELETE ALL"
 SORTABLE = {
     "chrom": "chrom_order",
@@ -66,6 +68,13 @@ async def upload_sample(
     content_type = request.headers.get("content-type", "").split(";")[0].strip()
     if content_type != "application/octet-stream":
         raise HTTPException(415, "Send the file as application/octet-stream.")
+    declared = int(request.headers.get("content-length") or 0)
+    # The upload, the sample database and annotation together need roughly
+    # three times the file size.
+    if shutil.disk_usage(store.tmp_dir()).free < declared * 3 + MIN_FREE_BYTES:
+        raise HTTPException(
+            507, "There isn't enough free disk space to import this file safely."
+        )
     workdir = store.tmp_dir() / uuid.uuid4().hex
     workdir.mkdir(parents=True)
     upload = workdir / "upload"
@@ -77,6 +86,10 @@ async def upload_sample(
                 if size > MAX_UPLOAD_BYTES:
                     limit = MAX_UPLOAD_BYTES // (1024 * 1024)
                     raise HTTPException(413, f"Files over {limit} MB aren't accepted.")
+                if size % (64 * 1024 * 1024) < len(chunk) and (
+                    shutil.disk_usage(workdir).free < MIN_FREE_BYTES
+                ):
+                    raise HTTPException(507, "The disk is nearly full; import stopped.")
                 digest.update(chunk)
                 out.write(chunk)
         if size == 0:

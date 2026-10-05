@@ -14,6 +14,7 @@ from yougene.annotate import runner
 from yougene.db import connect
 from yougene.importers import arrays
 from yougene.importers.base import ImportFailed
+from yougene.refdata import manager
 
 log = logging.getLogger("yougene.imports")
 MAX_UNPACKED_BYTES = 600 * 1024 * 1024
@@ -47,6 +48,13 @@ def unpack(path: Path, workdir: Path) -> Path:
     with path.open("rb") as handle:
         magic = handle.read(2)
     if magic == GZIP_MAGIC:
+        with gzip.open(path, "rb") as source:
+            try:
+                start = source.read(16)
+            except (OSError, EOFError) as error:
+                raise ImportFailed("unreadable", "The .gz file is damaged.") from error
+        if start.startswith(b"##fileformat=VCF"):
+            return path  # read compressed: sequencing files are large
         target = workdir / "unpacked.txt"
         try:
             with gzip.open(path, "rb") as source:
@@ -77,6 +85,10 @@ def unpack(path: Path, workdir: Path) -> Path:
     return target
 
 
+def installed_reference() -> set[str]:
+    return {s["id"] for s in manager.status()["sources"] if s["installed"]}
+
+
 def default_name(vendor: str) -> str:
     return f"{vendor} sample ({datetime.now(UTC):%Y-%m-%d})"
 
@@ -100,10 +112,16 @@ def run(
     final = store.sample_path(sample_id)
     partial = final.with_name(final.name + ".partial")
     partial.unlink(missing_ok=True)
+    if detection.format == "vcf" and detection.build_from_header == "38":
+        if "liftover" not in installed_reference():
+            progress(0.1, "Downloading GRCh38-to-GRCh37 conversion data (about 1 MB)")
+            manager.install(["liftover"])
     con = connect(partial)
     try:
+        if detection.format == "vcf" and detection.build_from_header == "38":
+            con.execute(f"ATTACH '{manager.db_path().as_posix()}' AS r (READ_ONLY)")
         progress(0.15, f"Loading {detection.vendor} calls")
-        importer.load(con, text)
+        load_stats = importer.load(con, text)
         progress(0.6, "Checking genome build")
         build = importer.confirm_build(con, detection)
         progress(0.7, "Checking chromosome copy numbers")
@@ -112,7 +130,11 @@ def run(
         summary = qc.summarise(con)
         summary["build_evidence"] = build
         summary["ploidy_normalisation"] = ploidy
+        summary["load"] = load_stats
+        summary["notes"] = detection.notes
         progress(0.9, "Saving")
+        if detection.format == "vcf" and detection.build_from_header == "38":
+            con.execute("DETACH r")
         con.execute("CREATE INDEX calls_probe ON calls (probe_id)")
         con.execute("CHECKPOINT")
     except BaseException:

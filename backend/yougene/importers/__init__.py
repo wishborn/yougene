@@ -6,12 +6,12 @@ Every importer turns a vendor file into the same normalised ``calls`` table
 
 from pathlib import Path
 
-from yougene.importers import twentythree
+from yougene.importers import twentythree, vcf
 from yougene.importers.base import Detection, ImportFailed
 from yougene.importers.vendors import VENDORS
 
 # 23andMe first: its comment header is the most specific signature.
-IMPORTERS = [twentythree, *VENDORS]
+IMPORTERS = [twentythree, vcf, *VENDORS]
 
 
 def detect(path: Path) -> tuple[object, Detection]:
@@ -24,7 +24,8 @@ def detect(path: Path) -> tuple[object, Detection]:
         "unrecognised_format",
         "This file isn't a format YouGene can read yet. "
         "Supported today: raw data from 23andMe, AncestryDNA, MyHeritage, "
-        "FamilyTreeDNA and Living DNA (the .txt/.csv file or the .zip download).",
+        "FamilyTreeDNA and Living DNA (the .txt/.csv file or the .zip download), "
+        "and VCF/gVCF files from sequencing (.vcf or .vcf.gz).",
     )
 
 

@@ -137,7 +137,9 @@ def install(
             path = Path(fetched[source_id]["path"])
             builder = builders.BUILDERS[source_id]
             stats = (
-                builder(con, path, work) if source_id == "gwas" else builder(con, path)
+                builder(con, path, work)
+                if source_id in ("gwas", "liftover")
+                else builder(con, path)
             )
             meta = {
                 **{k: v for k, v in fetched[source_id].items() if k != "path"},
