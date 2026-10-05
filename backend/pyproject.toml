@@ -23,6 +23,8 @@ select = ["E", "F", "I", "UP", "B"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
+# Only keep temp folders of failed tests; they hold synthetic data and add up.
+tmp_path_retention_policy = "failed"
 
 [tool.ruff.lint.per-file-ignores]
 # Test data tables read better one record per line.

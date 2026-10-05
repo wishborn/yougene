@@ -13,8 +13,8 @@ from pydantic import BaseModel, Field
 from yougene import imports, store
 from yougene.annotate import runner
 from yougene.genome import CHROMS
-from yougene.jobs import jobs
-from yougene.refdata import manager
+from yougene.jobs import downloads, jobs
+from yougene.refdata import manager, snpedia
 from yougene.refdata.sources import SOURCES
 
 router = APIRouter(prefix="/api")
@@ -123,7 +123,7 @@ async def upload_sample(
 
 @router.get("/jobs/{job_id}")
 def get_job(job_id: str):
-    job = jobs.get(job_id)
+    job = jobs.get(job_id) or downloads.get(job_id)
     if job is None:
         raise HTTPException(404, "No such job.")
     return job.public()
@@ -288,4 +288,19 @@ def refdata_install(body: RefdataInstall):
         return result
 
     job = jobs.submit("refdata", work)
+    return {"job_id": job.id}
+
+
+@router.get("/snpedia")
+def snpedia_status():
+    return snpedia.status()
+
+
+@router.post("/snpedia/install", status_code=202)
+def snpedia_install():
+    if downloads.active():
+        raise HTTPException(409, "The SNPedia download is already running.")
+    if not store.list_samples():
+        raise HTTPException(409, "Import a sample first: the pack covers its SNPs.")
+    job = downloads.submit("snpedia", lambda progress: snpedia.install(progress))
     return {"job_id": job.id}

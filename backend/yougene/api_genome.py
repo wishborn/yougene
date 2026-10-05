@@ -12,7 +12,7 @@ from yougene.analysis import known_traits as known_traits_module
 from yougene.annotate.engine import SENSITIVE_GENES
 from yougene.db import connect
 from yougene.genome import CHROMS
-from yougene.refdata import manager
+from yougene.refdata import manager, snpedia
 
 router = APIRouter(prefix="/api")
 GENE = re.compile(r"[A-Za-z0-9][A-Za-z0-9._-]{0,30}")
@@ -270,10 +270,18 @@ def variant_detail(
         for v in g.variants
         if (v.chrom, v.pos) == (chrom, pos)
     ]
+    snpedia_notes = [
+        note
+        for c in calls
+        if c["id_kind"] == "rs" and c["call_type"] == "snp"
+        for note in [snpedia.lookup(c["probe_id"], c["alleles"])]
+        if note is not None
+    ]
     return {
         "chrom": chrom,
         "pos": pos,
         "calls": calls,
+        "snpedia": snpedia_notes,
         "clinvar": clinvar,
         "clinvar_hidden": hidden,
         "traits": traits,

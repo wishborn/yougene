@@ -12,6 +12,16 @@ def pytest_addoption(parser):
 
 
 @pytest.fixture(autouse=True)
+def _plenty_of_disk(monkeypatch):
+    """The upload disk check would otherwise depend on the developer's disk."""
+    import collections
+    import shutil
+
+    usage = collections.namedtuple("usage", "total used free")
+    monkeypatch.setattr(shutil, "disk_usage", lambda path: usage(1, 1, 1 << 50))
+
+
+@pytest.fixture(autouse=True)
 def _no_network(monkeypatch):
     """No test may reach the network; downloads are always faked.
 

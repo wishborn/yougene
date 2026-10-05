@@ -57,6 +57,24 @@ export function VariantDrawer({ sampleId, target, onClose }: Props) {
                 </div>
               ))}
             </section>
+            {d.snpedia.length > 0 && (
+              <section className="space-y-2" data-testid="snpedia-note">
+                <h3 className="font-semibold">SNPedia</h3>
+                {d.snpedia.map(n => (
+                  <div key={n.rsid} className="space-y-1">
+                    <p>
+                      Your call is {n.snpedia_genotype} as SNPedia writes it.{" "}
+                      {n.genotype_summary ? `SNPedia: “${n.genotype_summary}”` : "SNPedia has no note for this genotype."}
+                    </p>
+                    {n.about && <p className="text-xs text-zinc-500">{n.about}</p>}
+                    <p className="text-xs text-zinc-500">
+                      Community-written, not reviewed by YouGene. <a className="underline" href={n.url} target="_blank"
+                        rel="noreferrer noopener">SNPedia page</a> · {n.license}
+                    </p>
+                  </div>
+                ))}
+              </section>
+            )}
             <section className="space-y-2">
               <h3 className="font-semibold">Trait associations</h3>
               {d.traits.length === 0 && <p className="text-zinc-500">No GWAS Catalog associations for this SNP (or the sample isn't matched yet).</p>}

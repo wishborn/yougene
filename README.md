@@ -67,6 +67,10 @@ Install from the workspace ("Download reference data") or the CLI:
 
 Each build records the source URL, release date, size and SHA-256. A failed update leaves the previous database untouched. ClinVar records keep every ALT of multi-allelic sites, and a `site_alleles` table lists all known alleles per single-base site, which allele matching needs. GWAS coordinates are GRCh38, so only rsids are used to join them.
 
+## SNPedia notes (optional)
+
+A one-click pack (Reference data panel, or `POST /api/snpedia/install`) downloads SNPedia's community-written notes for the SNPs on your imported files. Privacy: YouGene asks SNPedia for every SNP on the chip and every genotype page of each, never only yours, so your genotypes aren't revealed. It requests at most once per second, 50 pages per request, runs in the background (often 30-60 minutes), and resumes where it stopped. Notes show in the variant detail with a link and SNPedia's licence (CC BY-NC-SA 3.0, non-commercial). Calls are oriented with each SNP's `StabilizedOrientation`, and a note is only shown when the oriented letters are ones SNPedia lists for that SNP. No magnitude or good/bad scores are shown.
+
 ## Annotation
 
 After reference data is installed, every sample is matched against it automatically (on import, and again whenever reference data is updated). Results go to `samples/<id>.annot.duckdb`.
