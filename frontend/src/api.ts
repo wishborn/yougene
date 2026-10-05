@@ -166,3 +166,23 @@ export const findingsApi = {
   traits: (id: string, params: URLSearchParams) =>
     request<Page<TraitFinding>>(`/api/samples/${id}/traits?${params}`),
 };
+
+export type Band = { start: number; end: number; band: string; stain: string };
+export type Bin = { start: number; probes: number; nocalls: number; het_rate: number | null };
+export type Roh = { segments: { chrom: string; start: number; end: number; snps: number }[]; total_mb: number; fraction_of_autosomes: number };
+export type Marker = { chrom: string; pos: number; probe_id: string };
+
+export const genomeApi = {
+  cytobands: () => request<{ bands: Record<string, Band[]>; lengths: Record<string, number> }>("/api/reference/cytobands"),
+  bins: (id: string, binKb = 1000) =>
+    request<{ bin_bp: number; chroms: Record<string, Bin[]> }>(`/api/samples/${id}/genome/bins?bin_kb=${binKb}`),
+  roh: (id: string) => request<Roh>(`/api/samples/${id}/genome/roh`),
+  markers: (id: string, health: boolean) =>
+    request<{ traits: Marker[]; health: Marker[] }>(`/api/samples/${id}/genome/markers?health=${health}`),
+  coverage: (id: string, genes: string[]) => {
+    const p = new URLSearchParams();
+    genes.forEach(g => p.append("gene", g));
+    return request<{ genes: Record<string, { known_pathogenic_snvs: number; tested: number }> }>(
+      `/api/samples/${id}/coverage?${p}`);
+  },
+};

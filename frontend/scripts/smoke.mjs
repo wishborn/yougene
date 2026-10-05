@@ -87,12 +87,23 @@ try {
   if (withReference) {
     await page.getByRole("tab", { name: "Traits" }).click();
     await page.getByTestId("traits-total").filter({ hasText: /^[1-9][\d,]* associations$/ }).waitFor();
+    await page.getByRole("tab", { name: "Chromosomes" }).click();
+    await page.getByTestId("karyotype").waitFor();
+    assert.equal(await page.getByTestId("karyotype").locator("svg").count(), 24);
+    await page.getByTestId("roh-total").waitFor();
+    await page.getByRole("button", { name: "Chromosome 1", exact: true }).click();
+    await page.getByTestId("chromosome-summary").filter({ hasText: /[1-9][\d,]* probes/ }).waitFor();
+    await page.getByTestId("chromosome-chart").locator("canvas, svg").first().waitFor();
+    await page.waitForTimeout(300);
+    await page.screenshot({ path: join(artifacts, "chromosome.png"), fullPage: false });
+    await page.getByRole("button", { name: "All chromosomes" }).click();
     await page.getByRole("tab", { name: "Health" }).click();
     assert.equal(await page.getByTestId("health-finding").count(), 0, "health shown before opt-in");
     await page.getByRole("button", { name: "Show health results" }).click();
     await page.getByRole("dialog").getByText("I understand and want to see these results").click();
     await page.getByRole("dialog").getByRole("button", { name: "Show results" }).click();
     await page.getByTestId("health-total").waitFor();
+    await page.getByTestId("coverage-note").first().waitFor();
     await page.getByRole("button", { name: /Show APOE/ }).click();
     await page.getByRole("dialog").getByText("I understand and want to see these results").click();
     await page.getByRole("dialog").getByRole("button", { name: "Show results" }).click();

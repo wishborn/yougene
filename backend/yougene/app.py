@@ -5,6 +5,7 @@ from fastapi import FastAPI
 from yougene import __version__
 from yougene.api import router
 from yougene.api_findings import router as findings_router
+from yougene.api_genome import router as genome_router
 from yougene.security import LoopbackHostMiddleware
 
 
@@ -18,4 +19,5 @@ def create_app() -> FastAPI:
 
     app.include_router(router)
     app.include_router(findings_router)
+    app.include_router(genome_router)
     return app

@@ -317,3 +317,11 @@ def test_api_install(files):
         assert client.get("/api/refdata").json()["ready"] is True
         bad = client.post("/api/refdata/install", json={"sources": ["nope"]})
         assert bad.status_code == 422
+
+
+def test_downloads_removed_after_build_unless_kept(files):
+    install()
+    assert list((manager.ref_dir() / "downloads").iterdir()) == []
+    install(keep_downloads=True)
+    kept = sorted(p.name for p in (manager.ref_dir() / "downloads").iterdir())
+    assert kept == sorted(SOURCES[s].filename for s in manager.CORE)
