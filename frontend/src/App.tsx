@@ -5,6 +5,7 @@ import { api } from "./api";
 import { CallsGrid } from "./components/CallsGrid";
 import { ImportPanel } from "./components/ImportPanel";
 import { QcCard } from "./components/QcCard";
+import { ReferencePanel } from "./components/ReferencePanel";
 import { SampleList } from "./components/SampleList";
 
 export function App() {
@@ -58,6 +59,8 @@ export function App() {
                 : <SampleList samples={list} selected={selected?.id ?? null} onSelect={setChosen} />}
             </section>
           </div>
+
+          <ReferencePanel />
 
           {selected && <QcCard sample={selected} dark={theme.resolved === "dark"} />}
           {selected && <CallsGrid key={selected.id} sampleId={selected.id} />}

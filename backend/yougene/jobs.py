@@ -14,6 +14,7 @@ from concurrent.futures import ThreadPoolExecutor
 from dataclasses import asdict, dataclass
 
 from yougene.importers.base import ImportFailed
+from yougene.refdata.fetch import DownloadFailed
 
 log = logging.getLogger("yougene.jobs")
 KEEP = 50
@@ -48,7 +49,10 @@ class Jobs:
             return any(j.state in ("queued", "running") for j in self._jobs.values())
 
     def submit(
-        self, kind: str, work: Callable[[Callable[[float, str], None]], dict], cleanup
+        self,
+        kind: str,
+        work: Callable[[Callable[[float, str], None]], dict],
+        cleanup=None,
     ):
         job = Job(id=uuid.uuid4().hex, kind=kind)
         with self._lock:
@@ -64,23 +68,29 @@ class Jobs:
             job.state = "running"
             try:
                 record = work(progress)
-                job.sample_id = record["id"]
+                if kind == "import":
+                    job.sample_id = record["id"]
                 job.state = "done"
                 job.progress = 1.0
-                job.message = "Imported"
-            except ImportFailed as error:
+                job.message = "Imported" if kind == "import" else "Done"
+            except (ImportFailed, DownloadFailed) as error:
                 job.state, job.error_code, job.message = (
                     "failed",
-                    error.code,
-                    error.message,
+                    getattr(error, "code", "download_failed"),
+                    getattr(error, "message", str(error)),
                 )
             except Exception:
                 # Log the type only: exception text from parsers can echo file content.
                 log.error("import job %s failed with an unexpected error", job.id)
                 job.state, job.error_code = "failed", "internal"
-                job.message = "Something went wrong while importing. Nothing was saved."
+                job.message = (
+                    "Something went wrong while importing. Nothing was saved."
+                    if kind == "import"
+                    else "Something went wrong. The previous data is unchanged."
+                )
             finally:
-                shutil.rmtree(cleanup, ignore_errors=True)
+                if cleanup is not None:
+                    shutil.rmtree(cleanup, ignore_errors=True)
 
         self._pool.submit(runner)
         return job

@@ -13,6 +13,8 @@ from pydantic import BaseModel, Field
 from yougene import imports, store
 from yougene.genome import CHROMS
 from yougene.jobs import jobs
+from yougene.refdata import manager
+from yougene.refdata.sources import SOURCES
 
 router = APIRouter(prefix="/api")
 
@@ -238,3 +240,27 @@ def list_calls(
         "page_size": page_size,
         "rows": [dict(zip(CALL_COLUMNS, r, strict=True)) for r in rows],
     }
+
+
+class RefdataInstall(BaseModel):
+    sources: list[str] | None = None
+    refresh: bool = True
+
+
+@router.get("/refdata")
+def refdata_status():
+    return manager.status()
+
+
+@router.post("/refdata/install", status_code=202)
+def refdata_install(body: RefdataInstall):
+    ids = body.sources or list(manager.CORE)
+    unknown = [s for s in ids if s not in SOURCES]
+    if unknown:
+        raise HTTPException(422, f"Unknown reference source {unknown[0]!r}.")
+    if jobs.active():
+        raise HTTPException(409, "Another job is running. Try again when it finishes.")
+    job = jobs.submit(
+        "refdata", lambda progress: manager.install(ids, progress, refresh=body.refresh)
+    )
+    return {"job_id": job.id}

@@ -47,6 +47,26 @@ This workspace runs one site at **https://yougene.gen** with command `python scr
 
 API (all under `/api`): `POST /samples` (raw body, `application/octet-stream`, 200 MB cap), `GET /jobs/{id}`, `GET /samples`, `GET|PATCH|DELETE /samples/{id}`, `GET /samples/{id}/calls` (paging, sort, filters), `DELETE /data` (body `{"confirm": "DELETE ALL"}`).
 
+## Reference data
+
+Public databases are downloaded once, on request, and built into `reference/reference.duckdb` in the data folder (about 390 MB built):
+
+| Source | Use | License |
+|---|---|---|
+| ClinVar, GRCh37 VCF (NCBI) | Clinical significance, review stars, conditions, genes | Public domain |
+| GWAS Catalog associations (EMBL-EBI) | Trait associations, risk alleles, effect sizes | Mostly CC0; some studies other EMBL-EBI terms |
+| UCSC hg19 cytoBand | Chromosome band layout | UCSC, free for use |
+
+Install from the workspace ("Download reference data") or the CLI:
+
+```powershell
+.venv\Scripts\yougene refdata install                 # download and build all
+.venv\Scripts\yougene refdata install --file clinvar=C:\path\clinvar.vcf.gz   # reuse a download
+.venv\Scripts\yougene refdata status
+```
+
+Each build records the source URL, release date, size and SHA-256. A failed update leaves the previous database untouched. ClinVar records keep every ALT of multi-allelic sites, and a `site_alleles` table lists all known alleles per single-base site, which allele matching needs. GWAS coordinates are GRCh38, so only rsids are used to join them.
+
 ## Checks
 
 ```powershell
