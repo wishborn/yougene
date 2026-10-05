@@ -6,7 +6,7 @@ from typing import Annotated
 
 from fastapi import APIRouter, HTTPException, Query
 
-from yougene import store
+from yougene import haplogroups, store
 from yougene.analysis import genome, pgx
 from yougene.analysis import known_traits as known_traits_module
 from yougene.annotate.engine import SENSITIVE_GENES
@@ -78,6 +78,26 @@ def _roh(sample_id: str, mtime: float) -> dict:
 def roh(sample_id: str):
     _sample_or_404(sample_id)
     return _roh(sample_id, store.sample_path(sample_id).stat().st_mtime)
+
+
+@lru_cache(maxsize=16)
+def _haplogroups(sample_id: str, mtime: float) -> dict:
+    sample = store.get_sample(sample_id)
+    con = store.open_sample(sample_id)
+    try:
+        return haplogroups.for_sample(
+            con, sample["vendor"], sample["qc"]["sex"]["inferred"]
+        )
+    finally:
+        con.close()
+
+
+@router.get("/samples/{sample_id}/haplogroups")
+def sample_haplogroups(sample_id: str):
+    """Maternal (mtDNA) and paternal (Y) lines. No reference data needed:
+    both trees ship with YouGene."""
+    _sample_or_404(sample_id)
+    return _haplogroups(sample_id, store.sample_path(sample_id).stat().st_mtime)
 
 
 @router.get("/samples/{sample_id}/genome/markers")

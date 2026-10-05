@@ -23,6 +23,9 @@ from yougene.importers import arrays
 from yougene.importers.base import Detection, ImportFailed
 
 CHR1_LENGTH = {249_250_621: "37", 248_956_422: "38"}
+# hg19's chrM is the Yoruba sequence (NC_001807), not rCRS (16,569 bases) as
+# in GRCh37's MT and GRCh38's chrM; its positions don't line up with ours.
+YORUBA_CHRM_LENGTH = 16_571
 GZIP_MAGIC = bytes([0x1F, 0x8B])
 SYMBOLIC = "(<[^>]*>|\\*)"
 
@@ -60,7 +63,12 @@ def read_header(path: Path) -> dict:
         elif any(k in reference for k in ("grch37", "hg19", "b37", "hs37")):
             build = "37"
     columns = lines[-1].split("\t") if lines and lines[-1].startswith("#CHROM") else []
+    yoruba_mt = any(
+        re.match(rf"##contig=<ID=(?:chr)?(?:M|MT),length={YORUBA_CHRM_LENGTH}\b", ln)
+        for ln in lines
+    )
     return {
+        "yoruba_mt": yoruba_mt,
         "is_vcf": bool(lines) and lines[0].startswith("##fileformat=VCF"),
         "build": build,
         "samples": columns[9:],
@@ -78,6 +86,11 @@ def detect(path: Path) -> Detection | None:
     if len(header["samples"]) > 1:
         notes.append(
             f"{len(header['samples'])} samples in the file; the first was used."
+        )
+    if header["yoruba_mt"]:
+        notes.append(
+            "Mitochondrial calls use hg19's older chrM sequence rather than rCRS, "
+            "so they weren't imported."
         )
     return Detection(
         vendor="VCF", format="vcf", build_from_header=header["build"], notes=notes
@@ -215,6 +228,12 @@ def load(con, path: Path) -> dict:
         WHERE probe_id IN (SELECT probe_id FROM raw GROUP BY probe_id HAVING count(*) > 1)
         """
     )
+    if header["yoruba_mt"]:
+        stats["mt_dropped"] = con.execute(
+            "SELECT count(*) FROM raw WHERE chrom = 'MT'"
+        ).fetchone()[0]
+        con.execute("DELETE FROM raw WHERE chrom = 'MT'")
+        con.execute("DELETE FROM ref_blocks WHERE chrom = 'MT'")
     if header["build"] == "38":
         stats.update(_lift(con))
     stats.update(arrays.build_calls(con, "VCF"))
@@ -233,9 +252,13 @@ def _lift(con) -> dict:
             "data to read it.",
         ) from error
     before = con.execute("SELECT count(*) FROM raw").fetchone()[0]
+    # GRCh38's chrM is rCRS, as is GRCh37's MT: same positions, no lifting.
+    # (The UCSC chain maps it to hg19's Yoruba chrM instead.)
     con.execute(
         """
         CREATE OR REPLACE TEMP TABLE raw AS
+        SELECT probe_id, chrom, chrom_in, pos, gt FROM raw WHERE chrom = 'MT'
+        UNION ALL
         SELECT x.probe_id, c.q_chrom AS chrom, x.chrom_in,
                CAST(CASE WHEN c.q_strand = '+'
                     THEN c.q_first + (CAST(x.pos AS UBIGINT) - 1 - c.t_start)
@@ -248,12 +271,13 @@ def _lift(con) -> dict:
           ON c.t_chrom = x.chrom
          AND CAST(x.pos AS UBIGINT) - 1 >= c.t_start
          AND CAST(x.pos AS UBIGINT) - 1 < c.t_end
+        WHERE x.chrom <> 'MT'
         """
     )
     after = con.execute("SELECT count(*) FROM raw").fetchone()[0]
     # Reference blocks would need splitting across chain gaps; dropped for
-    # GRCh38 input rather than converted approximately.
-    con.execute("DELETE FROM ref_blocks")
+    # GRCh38 input rather than converted approximately (MT's need no change).
+    con.execute("DELETE FROM ref_blocks WHERE chrom <> 'MT'")
     return {"lifted_from": "GRCh38", "unmapped_after_liftover": before - after}
 
 

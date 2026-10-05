@@ -10,6 +10,7 @@ const SAMPLE_PAGES = [
   ["chromosomes", "Chromosomes"],
   ["traits", "Traits"],
   ["medicines", "Medicines"],
+  ["lineage", "Lineage"],
   ["health", "Health"],
 ] as const;
 

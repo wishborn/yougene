@@ -17,6 +17,8 @@ dependencies = [
     "duckdb>=1.2",
     # Inertia server adapter from the Fancy kit; not on PyPI yet, pinned to a commit.
     "fancy-inertia-server @ git+https://github.com/Particle-Academy/fancy-inertia-server@1cb476d3bd463c2ec9c2f4210891808cc66edbbd",
+    # Y haplogroups. 23andMe's licence: non-commercial use (see README).
+    "yhaplo @ git+https://github.com/23andMe/yhaplo@f72f88f2818aebd049c29d2ca8fc2f30c3003b17",
 ]
 
 [project.optional-dependencies]

@@ -162,6 +162,9 @@ def chain_file(path: Path) -> Path:
         "50000000", "",
         "chain 1000 chr2 242193529 + 0 5000 chr2 10000 - 0 5000 3",
         "5000", "",
+        # Like UCSC's: rCRS chrM onto hg19's Yoruba chrM, which must be ignored.
+        "chain 1000 chrM 16569 + 0 16569 chrM 16571 + 2 16571 4",
+        "16569", "",
     ])  # fmt: skip
     with gzip.open(path, "wt") as handle:
         handle.write(text)
@@ -186,6 +189,7 @@ def test_grch38_vcf_is_converted(tmp_path, monkeypatch):
         vcf_line("chr3", 100, "rsC", "A", "G", "0/1"),  # no chain -> dropped
         vcf_line("chr19", 45411941, "rs429358", "C", "T", "0/1"),
         vcf_line("chr19", 45412079, "rs7412", "C", "T", "0/0"),
+        vcf_line("chrM", 263, ".", "A", "G", "1"),  # rCRS in both builds
     ]
     path = tmp_path / "g38.vcf"
     path.write_text("\n".join(header + rows) + "\n")
@@ -197,5 +201,23 @@ def test_grch38_vcf_is_converted(tmp_path, monkeypatch):
     assert got[("1", 1500)] == "AG"
     assert got[("2", 10000)] == "GG"  # complemented on the reverse strand
     assert all(c != "3" for c, _ in got)
+    assert got[("MT", 263)] == "G" and ("MT", 265) not in got
     assert record["qc"]["load"]["unmapped_after_liftover"] == 1
     assert record["qc"]["build_evidence"]["lifted_from_grch38"] is True
+
+
+def test_hg19_yoruba_chrm_is_not_imported(tmp_path):
+    header = HEADER_37 + [
+        "##contig=<ID=chrM,length=16571>",
+        "#CHROM\tPOS\tID\tREF\tALT\tQUAL\tFILTER\tINFO\tFORMAT\tME",
+    ]
+    rows = [
+        vcf_line("chr1", 1000, "rsA", "A", "G", "0/1"),
+        vcf_line("chrM", 263, ".", "A", "G", "1"),
+    ]
+    path = tmp_path / "hg19.vcf"
+    path.write_text("\n".join(header + rows) + "\n")
+    record = do_import(path)
+    assert {c for c, *_ in calls(record["id"])} == {"1"}
+    assert any("chrM" in note for note in record["qc"]["notes"])
+    assert record["qc"]["load"]["mt_dropped"] == 1

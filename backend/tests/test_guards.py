@@ -37,7 +37,7 @@ def network_imports(source):
 
 
 def test_offline_packages():
-    for package in ["analysis", "annotate", "importers"]:
+    for package in ["analysis", "annotate", "haplogroups", "importers"]:
         files = list((ROOT / "backend/yougene" / package).rglob("*.py"))
         assert files
         for path in files:

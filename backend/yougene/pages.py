@@ -110,6 +110,7 @@ SAMPLE_VIEWS = {
     "chromosomes": "Sample/Chromosomes",
     "traits": "Sample/Traits",
     "medicines": "Sample/Medicines",
+    "lineage": "Sample/Lineage",
     "health": "Sample/Health",
 }
 
