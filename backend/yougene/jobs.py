@@ -103,3 +103,5 @@ class Jobs:
 
 
 jobs = Jobs()
+# Long downloads (the SNPedia pack) run here so they never block imports.
+downloads = Jobs()

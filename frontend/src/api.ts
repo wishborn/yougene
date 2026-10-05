@@ -221,9 +221,16 @@ export type VariantDetail = {
     effect: number | null; effect_type: string; beta_direction: string | null; p_value: string; p_mlog: number;
     pmid: number | null; first_author: string; published: string | null }[];
   curated: { kind: "trait" | "medicine"; id: string; title: string }[];
+  snpedia: { rsid: string; snpedia_genotype: string; about: string | null; genotype_summary: string | null;
+    url: string; license: string }[];
 };
 
 export const variantApi = {
   get: (id: string, chrom: string, pos: number) =>
     request<VariantDetail>(`/api/samples/${id}/variant?chrom=${encodeURIComponent(chrom)}&pos=${pos}`),
+};
+
+export const snpediaApi = {
+  status: () => request<{ installed: boolean; license: string; snps?: number; genotype_pages?: number; updated_at?: string }>("/api/snpedia"),
+  install: () => request<{ job_id: string }>("/api/snpedia/install", { method: "POST" }),
 };

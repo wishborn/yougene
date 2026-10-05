@@ -23,6 +23,7 @@ from yougene.refdata.sources import SOURCES
 
 Progress = Callable[[float, str], None]
 CORE = ("clinvar", "gwas", "cytoband")
+MIN_FREE_BYTES = 300 * 1024 * 1024
 
 
 def ref_dir() -> Path:
@@ -100,6 +101,18 @@ def install(
         if entry["installed"] and entry["id"] not in ids
     }
 
+    # Rough space needed: downloads, the new database (about twice the
+    # download size), plus a copy of the old one when other sources are kept.
+    needed = sum(SOURCES[i].approx_mb for i in ids) * 3 * 1024 * 1024
+    if kept and db_path().exists():
+        needed += db_path().stat().st_size
+    free = shutil.disk_usage(base).free
+    if free < needed + MIN_FREE_BYTES:
+        raise fetch.DownloadFailed(
+            f"Updating reference data needs about {needed // (1024 * 1024):,} MB of "
+            f"free disk space; {free // (1024 * 1024):,} MB is free."
+        )
+
     fetched: dict[str, dict] = {}
     share = 0.6 / len(ids)
     for index, source_id in enumerate(ids):
@@ -122,7 +135,7 @@ def install(
 
     partial = db_path().with_name("reference.duckdb.partial")
     partial.unlink(missing_ok=True)
-    if db_path().exists():
+    if kept and db_path().exists():
         shutil.copyfile(db_path(), partial)  # keep tables of other sources
     con = connect(partial)
     try:
@@ -156,6 +169,9 @@ def install(
     except BaseException:
         con.close()
         partial.unlink(missing_ok=True)
+        if not keep_downloads:
+            for meta in fetched.values():
+                Path(meta["path"]).unlink(missing_ok=True)
         raise
     finally:
         shutil.rmtree(work, ignore_errors=True)

@@ -325,3 +325,24 @@ def test_downloads_removed_after_build_unless_kept(files):
     install(keep_downloads=True)
     kept = sorted(p.name for p in (manager.ref_dir() / "downloads").iterdir())
     assert kept == sorted(SOURCES[s].filename for s in manager.CORE)
+
+
+def test_refuses_update_when_disk_is_low(files, monkeypatch):
+    import collections
+    import shutil as sh
+
+    usage = collections.namedtuple("usage", "total used free")
+    monkeypatch.setattr(sh, "disk_usage", lambda path: usage(1, 1, 50 * 1024 * 1024))
+    with pytest.raises(manager.fetch.DownloadFailed, match="free disk space"):
+        install()
+    assert manager.status()["ready"] is False
+
+
+def test_failed_build_removes_downloads(files, monkeypatch):
+    def broken(con, path):
+        raise RuntimeError("boom")
+
+    monkeypatch.setitem(manager.builders.BUILDERS, "cytoband", broken)
+    with pytest.raises(RuntimeError):
+        install()
+    assert list((manager.ref_dir() / "downloads").iterdir()) == []
