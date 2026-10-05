@@ -33,7 +33,9 @@ def run_refdata(parser: argparse.ArgumentParser, args) -> None:
     def progress(value: float, message: str) -> None:
         print(f"[{value:4.0%}] {message}", flush=True)
 
-    result = manager.install(ids, progress, refresh=not local)
+    result = manager.install(
+        ids, progress, refresh=not local, keep_downloads=args.keep_downloads
+    )
     print(json.dumps(result, indent=2, default=str))
 
 
@@ -57,6 +59,11 @@ def main(argv: list[str] | None = None) -> None:
         default=[],
         metavar="ID=PATH",
         help="use an already-downloaded file instead of downloading it",
+    )
+    refdata.add_argument(
+        "--keep-downloads",
+        action="store_true",
+        help="keep downloaded files after building (default: delete them)",
     )
     args = parser.parse_args(argv)
     if args.command == "version":

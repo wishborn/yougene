@@ -3,6 +3,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Button, Callout, Progress, Tabs } from "@particle-academy/react-fancy";
 import { api, findingsApi, type Sample } from "../api";
 import { CallsGrid } from "./CallsGrid";
+import { ExplorerPanel } from "./ExplorerPanel";
 import { HealthPanel } from "./HealthPanel";
 import { QcCard } from "./QcCard";
 import { TraitsPanel } from "./TraitsPanel";
@@ -53,11 +54,13 @@ export function SampleView({ sample, dark }: { sample: Sample; dark: boolean }) 
       <Tabs activeTab={tab} onTabChange={setTab} variant="underline">
         <Tabs.List>
           <Tabs.Tab value="calls">All calls</Tabs.Tab>
+          <Tabs.Tab value="chromosomes">Chromosomes</Tabs.Tab>
           <Tabs.Tab value="traits">Traits</Tabs.Tab>
           <Tabs.Tab value="health">Health</Tabs.Tab>
         </Tabs.List>
         <Tabs.Panels className="pt-4">
           <Tabs.Panel value="calls"><CallsGrid sampleId={sample.id} /></Tabs.Panel>
+          <Tabs.Panel value="chromosomes"><ExplorerPanel sampleId={sample.id} dark={dark} /></Tabs.Panel>
           <Tabs.Panel value="traits"><TraitsPanel sampleId={sample.id} /></Tabs.Panel>
           <Tabs.Panel value="health"><HealthPanel sampleId={sample.id} /></Tabs.Panel>
         </Tabs.Panels>

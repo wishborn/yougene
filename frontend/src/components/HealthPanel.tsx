@@ -1,25 +1,8 @@
-import { useMemo, useState, useSyncExternalStore } from "react";
+import { useMemo, useState } from "react";
 import { keepPreviousData, useQuery } from "@tanstack/react-query";
 import { Badge, Button, Callout, Checkbox, Modal, Pagination, Switch } from "@particle-academy/react-fancy";
-import { findingsApi, type ClinvarFinding } from "../api";
-
-// Consent is kept on this computer and can be withdrawn at any time.
-const KEY = "yougene.consent";
-const listeners = new Set<() => void>();
-function readConsent(): Record<string, boolean> {
-  try { return JSON.parse(localStorage.getItem(KEY) ?? "{}"); } catch { return {}; }
-}
-function setConsent(name: string, value: boolean) {
-  localStorage.setItem(KEY, JSON.stringify({ ...readConsent(), [name]: value }));
-  listeners.forEach(l => l());
-}
-function useConsent(): Record<string, boolean> {
-  const raw = useSyncExternalStore(
-    l => { listeners.add(l); return () => listeners.delete(l); },
-    () => localStorage.getItem(KEY) ?? "{}",
-  );
-  return useMemo(() => { try { return JSON.parse(raw); } catch { return {}; } }, [raw]);
-}
+import { findingsApi, genomeApi, type ClinvarFinding } from "../api";
+import { setConsent, useConsent } from "../consent";
 
 const TOPICS: Record<string, { title: string; explain: string }> = {
   apoe: {
@@ -102,7 +85,24 @@ function Gate({ title, explain, onAccept }: { title: string; explain: string; on
   );
 }
 
-function FindingCard({ row }: { row: ClinvarFinding }) {
+type Coverage = Record<string, { known_pathogenic_snvs: number; tested: number }>;
+
+function CoverageNote({ genes, coverage }: { genes: string[]; coverage?: Coverage }) {
+  if (!coverage) return null;
+  const parts = genes.map(g => coverage[g.toUpperCase()]).filter(Boolean);
+  if (!parts.length) return null;
+  return (
+    <p className="text-xs text-zinc-500" data-testid="coverage-note">
+      {genes.map(g => {
+        const c = coverage[g.toUpperCase()];
+        return c ? `${g}: this file tests ${c.tested.toLocaleString()} of ${c.known_pathogenic_snvs.toLocaleString()} known disease-linked single-letter variants. ` : "";
+      }).join("")}
+      Variants it doesn't test can't be ruled out.
+    </p>
+  );
+}
+
+function FindingCard({ row, coverage }: { row: ClinvarFinding; coverage?: Coverage }) {
   const tier = TIER[row.tier];
   const conditions = (row.conditions ?? []).filter(c => !/^not (provided|specified)$/i.test(c));
   return (
@@ -123,6 +123,7 @@ function FindingCard({ row }: { row: ClinvarFinding }) {
         </Callout>
       )}
       {row.dup_conflict && <Callout color="amber">Two probes at this position disagree, so this call is unreliable.</Callout>}
+      <CoverageNote genes={row.genes ?? []} coverage={coverage} />
       <p className="text-xs text-zinc-500">
         ClinVar <a className="underline" href={`https://www.ncbi.nlm.nih.gov/clinvar/variation/${row.vcv_id}/`}
           target="_blank" rel="noreferrer noopener">VCV{String(row.vcv_id).padStart(9, "0")}</a>
@@ -155,6 +156,15 @@ export function HealthPanel({ sampleId }: { sampleId: string }) {
     placeholderData: keepPreviousData,
   });
 
+  const pageGenes = useMemo(
+    () => [...new Set((findings.data?.rows ?? []).flatMap(r => r.genes ?? []))].sort(),
+    [findings.data],
+  );
+  const coverage = useQuery({
+    queryKey: ["coverage", sampleId, pageGenes.join(",")],
+    queryFn: () => genomeApi.coverage(sampleId, pageGenes),
+    enabled: Boolean(consent.health) && pageGenes.length > 0,
+  });
   if (!consent.health) {
     return (
       <section className="space-y-3">
@@ -183,7 +193,7 @@ export function HealthPanel({ sampleId }: { sampleId: string }) {
           : <Gate key={id} title={`Show ${topic.title}`} explain={topic.explain} onAccept={() => setConsent(`topic.${id}`, true)} />)}
       </div>
       <p className="text-sm text-zinc-500" data-testid="health-total">{total.toLocaleString()} findings</p>
-      <ul className="space-y-3">{(findings.data?.rows ?? []).map(row => <FindingCard key={`${row.vcv_id}-${row.probe_id}`} row={row} />)}</ul>
+      <ul className="space-y-3">{(findings.data?.rows ?? []).map(row => <FindingCard key={`${row.vcv_id}-${row.probe_id}`} row={row} coverage={coverage.data?.genes} />)}</ul>
       <Pagination page={page + 1} totalPages={Math.max(1, Math.ceil(total / 20))} onPageChange={p => setPage(p - 1)} />
       <Callout color="zinc">
         Confirm anything important with a clinical lab and a genetics professional before making decisions.

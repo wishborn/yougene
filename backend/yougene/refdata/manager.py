@@ -77,8 +77,13 @@ def install(
     progress: Progress = lambda value, message: None,
     download=None,
     refresh: bool = True,
+    keep_downloads: bool = False,
 ) -> dict:
-    """Download (unless ``refresh`` is false and a copy exists) and build."""
+    """Download (unless ``refresh`` is false and a copy exists) and build.
+
+    Downloads are deleted after a successful build unless ``keep_downloads``:
+    they're only needed to rebuild offline, and they're large.
+    """
     download = download or fetch.download
     ids = [i for i in source_ids if i in SOURCES]
     if not ids:
@@ -154,5 +159,8 @@ def install(
         shutil.rmtree(work, ignore_errors=True)
     con.close()
     partial.replace(db_path())
+    if not keep_downloads:
+        for source_id in ids:
+            Path(fetched[source_id]["path"]).unlink(missing_ok=True)
     progress(1.0, "Reference data ready")
     return {"built": results, "kept": sorted(kept)}

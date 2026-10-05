@@ -246,6 +246,7 @@ def list_calls(
 class RefdataInstall(BaseModel):
     sources: list[str] | None = None
     refresh: bool = True
+    keep_downloads: bool = False
 
 
 @router.get("/refdata")
@@ -267,6 +268,7 @@ def refdata_install(body: RefdataInstall):
             ids,
             lambda value, message: progress(value * 0.9, message),
             refresh=body.refresh,
+            keep_downloads=body.keep_downloads,
         )
         # New reference data makes every sample's findings stale; refresh them.
         runner.annotate_all(lambda value, message: progress(0.9 + value * 0.1, message))
