@@ -7,9 +7,9 @@ genome_*
 *.vcf
 *.vcf.gz
 *.zip
-data/
-refdata/
-sandbox/
+/data/
+/refdata/
+/sandbox/
 *.duckdb
 *.sqlite
 *.sqlite3

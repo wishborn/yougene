@@ -97,3 +97,29 @@ export const api = {
   remove: (id: string) => request<void>(`/api/samples/${id}`, { method: "DELETE" }),
   calls: (id: string, params: URLSearchParams) => request<CallsPage>(`/api/samples/${id}/calls?${params}`),
 };
+
+export type RefSource = {
+  id: string;
+  title: string;
+  purpose: string;
+  license: string;
+  attribution: string;
+  approx_mb: number;
+  url: string;
+  installed: null | {
+    released: string | null;
+    built_at: string;
+    bytes?: number;
+    stats: Record<string, number>;
+  };
+};
+
+export const refdataApi = {
+  status: () => request<{ sources: RefSource[]; ready: boolean }>("/api/refdata"),
+  install: (sources?: string[]) =>
+    request<{ job_id: string }>("/api/refdata/install", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify(sources ? { sources } : {}),
+    }),
+};
