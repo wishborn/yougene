@@ -10,8 +10,10 @@
     "smoke": "node scripts/smoke.mjs"
   },
   "dependencies": {
+    "@inertiajs/react": "^2.3.28",
     "@particle-academy/fancy-echarts": "^6.1.0",
     "@particle-academy/fancy-grid": "^0.3.0",
+    "@particle-academy/fancy-inertia": "^0.11.0",
     "@particle-academy/react-fancy": "^5.33.0",
     "@tanstack/react-query": "^5.104.1",
     "@tanstack/react-table": "^8.21.3",

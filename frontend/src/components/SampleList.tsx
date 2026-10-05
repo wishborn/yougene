@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { router } from "@inertiajs/react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { Badge, Button, Input, Modal } from "@particle-academy/react-fancy";
 import { api, type Sample } from "../api";
@@ -13,7 +14,11 @@ export function SampleList({ samples, selected, onSelect }: Props) {
   const [name, setName] = useState("");
   const [relationship, setRelationship] = useState("");
 
-  const refresh = () => queryClient.invalidateQueries({ queryKey: ["samples"] });
+  const refresh = () => {
+    // The sidebar's sample list comes from Inertia shared props.
+    router.reload({ only: ["samples"] });
+    return queryClient.invalidateQueries({ queryKey: ["samples"] });
+  };
   const rename = useMutation({
     mutationFn: () => api.rename(editing!.id, { display_name: name.trim(), relationship: relationship.trim() || null }),
     onSuccess: () => { setEditing(null); void refresh(); },

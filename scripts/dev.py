@@ -121,6 +121,8 @@ def main() -> int:
     # accept it as an Origin for uploads and deletes.
     hosts = {h for h in os.environ.get("YOUGENE_ALLOWED_HOSTS", "").split(",") if h}
     os.environ["YOUGENE_ALLOWED_HOSTS"] = ",".join(sorted(hosts | {"yougene.gen"}))
+    # Pages load their scripts from the Vite dev server (same origin via proxy).
+    os.environ["YOUGENE_DEV"] = "1"
     return supervise(
         [
             (
