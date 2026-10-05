@@ -186,3 +186,14 @@ export const genomeApi = {
       `/api/samples/${id}/coverage?${p}`);
   },
 };
+
+export type KnownTrait = {
+  id: string; title: string; rsid: string; gene: string; effect_allele: string; other_allele: string;
+  caveat: string; clinvar_vcv: number;
+  status: "ok" | "not_tested" | "no_call" | "conflicting" | "unexpected";
+  genotype?: string; copies?: number; summary: string | null;
+};
+
+export const knownTraitsApi = {
+  list: (id: string) => request<{ traits: KnownTrait[] }>(`/api/samples/${id}/known-traits`).then(r => r.traits),
+};

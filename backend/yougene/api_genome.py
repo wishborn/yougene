@@ -8,6 +8,7 @@ from fastapi import APIRouter, HTTPException, Query
 
 from yougene import store
 from yougene.analysis import genome
+from yougene.analysis import known_traits as known_traits_module
 from yougene.db import connect
 from yougene.genome import CHROMS
 from yougene.refdata import manager
@@ -151,3 +152,13 @@ def coverage(sample_id: str, gene: Annotated[list[str], Query(min_length=1)]):
             g: found.get(g, {"known_pathogenic_snvs": 0, "tested": 0}) for g in genes
         }
     }
+
+
+@router.get("/samples/{sample_id}/known-traits")
+def known_traits(sample_id: str):
+    _sample_or_404(sample_id)
+    con = store.open_sample(sample_id)
+    try:
+        return {"traits": known_traits_module.evaluate(con)}
+    finally:
+        con.close()
