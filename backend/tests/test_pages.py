@@ -107,3 +107,15 @@ def test_unknown_pages(client):
 
 def test_host_guard_still_wraps_pages(client):
     assert client.get("/", headers={"host": "evil.example"}).status_code == 400
+
+
+def test_dev_page_boots_react_from_same_origin(monkeypatch, tmp_path):
+    monkeypatch.setenv("YOUGENE_DATA_DIR", str(tmp_path / "data"))
+    monkeypatch.setenv("YOUGENE_DEV", "1")
+    with TestClient(create_app(), base_url="http://127.0.0.1") as c:
+        html = c.get("/").text
+    refresh = html.index("/@react-refresh")
+    assert (
+        refresh < html.index('src="/@vite/client"') < html.index('src="/src/main.tsx"')
+    )
+    assert "//@vite" not in html

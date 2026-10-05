@@ -7,7 +7,7 @@ render straight away.
 
 Assets: in development the Vite dev server fronts the site and proxies page
 requests here, so the root template loads scripts from the same origin
-(including the React-refresh preamble @vitejs/plugin-react needs). In
+(fancy-inertia-server adds the React-refresh preamble plugin-react needs). In
 production FastAPI serves the built files under /build from the manifest.
 """
 
@@ -25,18 +25,6 @@ DIST = FRONTEND / "dist"
 MANIFEST = DIST / ".vite" / "manifest.json"
 ENTRY = "src/main.tsx"
 
-DEV_TAGS = (
-    '<script type="module">'
-    'import RefreshRuntime from "/@react-refresh";'
-    "RefreshRuntime.injectIntoGlobalHook(window);"
-    "window.$RefreshReg$ = () => {};"
-    "window.$RefreshSig$ = () => (type) => type;"
-    "window.__vite_plugin_react_preamble_installed__ = true;"
-    "</script>"
-    '<script type="module" src="/@vite/client"></script>'
-    f'<script type="module" src="/{ENTRY}"></script>'
-)
-
 router = APIRouter(include_in_schema=False)
 
 
@@ -46,7 +34,8 @@ def dev_mode() -> bool:
 
 def install(app: FastAPI) -> None:
     if dev_mode():
-        assets = lambda: DEV_TAGS  # noqa: E731
+        # Same origin: Vite fronts the site. Includes the React-refresh preamble.
+        assets = asset_tags(entry=ENTRY, dev_server="/")
         version = "dev"
     else:
         built = asset_tags(entry=ENTRY, manifest_path=MANIFEST, base="/build/")
