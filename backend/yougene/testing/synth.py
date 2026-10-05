@@ -38,6 +38,8 @@ LENGTHS = [
     59373566,
     16569,
 ]
+_WEIGHTS = LENGTHS[:-1] + [sum(LENGTHS[:-1]) * 0.003]
+CUM_WEIGHTS = [sum(_WEIGHTS[: i + 1]) for i in range(len(_WEIGHTS))]
 # Public GRCh37 facts: grch37.rest.ensembl.org/variation/human/<rsid>
 # and ncbi.nlm.nih.gov/clinvar/RCV000018395.37/ (CYP2C19).
 ANCHORS = [
@@ -50,7 +52,8 @@ ANCHORS = [
 
 
 def is_x_par(position: int) -> bool:
-    return position < 2699520 or position > 154931043
+    # GRCh37 PAR1 = X:60001-2699520, PAR2 = X:154931044-155260560.
+    return position <= 2699520 or position >= 154931044
 
 
 def generate(sex: str, seed: int, rows: int) -> tuple[list[tuple], dict]:
@@ -86,7 +89,7 @@ def generate(sex: str, seed: int, rows: int) -> tuple[list[tuple], dict]:
         plant("nocall_block", f"i700010{i:02}", "5", 7000000 + i * 10000, "--")
     for i in range(21):
         plant("roh", f"rs{900000100 + i}", "6", 10000000 + i * 50000, "AA")
-    for i, pos in enumerate([100000, 2699519, 2699520, 5000000, 154931043, 155000000]):
+    for i, pos in enumerate([100000, 2699520, 2699521, 5000000, 154931043, 155000000]):
         call = "AG" if sex == "female" or is_x_par(pos) else "A"
         plant("x_ploidy", f"rs{900000200 + i}", "X", pos, call)
     plant("y_ploidy", "rs900000210", "Y", 10000000, "G" if sex == "male" else "--")
@@ -94,7 +97,9 @@ def generate(sex: str, seed: int, rows: int) -> tuple[list[tuple], dict]:
     occupied = {(c, p) for _, c, p, _ in calls}
     while len(calls) < rows:
         index = len(calls)
-        chrom = CHROMS[index % len(CHROMS)]
+        # Probe density follows chromosome length; MT is tiny, so it gets a
+        # fixed small share (~0.3%, like real arrays) to stay satisfiable.
+        chrom = rng.choices(CHROMS, cum_weights=CUM_WEIGHTS)[0]
         pos = rng.randint(1, LENGTHS[CHROMS.index(chrom)])
         # Keep planted blocks uncontaminated, and accidental duplicates out.
         if (
@@ -113,7 +118,9 @@ def generate(sex: str, seed: int, rows: int) -> tuple[list[tuple], dict]:
         else:
             call = "".join(sorted(rng.choices("ACGT", k=2)))
         calls.append((f"rs{910000000 + index}", chrom, pos, call))
-    calls.sort(key=lambda row: (CHROMS.index(row[1]), row[2], row[0]))
+    order = {chrom: i for i, chrom in enumerate(CHROMS)}
+    calls.sort(key=lambda row: (order[row[1]], row[2], row[0]))
+    planted_ids = {probe for probes in cases.values() for probe in probes}
     return calls, {
         "synthetic": True,
         "format": "23andMe-v5",
@@ -122,11 +129,7 @@ def generate(sex: str, seed: int, rows: int) -> tuple[list[tuple], dict]:
         "seed": seed,
         "rows": rows,
         "cases": cases,
-        "planted": [
-            list(row)
-            for row in calls
-            if row[0] in {probe for probes in cases.values() for probe in probes}
-        ],
+        "planted": [list(row) for row in calls if row[0] in planted_ids],
         "roh_interval": {"chrom": "6", "start": 10000000, "end": 11000000},
     }
 
