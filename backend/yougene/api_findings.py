@@ -3,6 +3,7 @@
 from typing import Annotated, Literal
 
 from fastapi import APIRouter, HTTPException, Query
+from pydantic import BaseModel
 
 from yougene import store
 from yougene.annotate import runner
@@ -91,9 +92,38 @@ def annotate_sample(sample_id: str):
     return {"job_id": job.id}
 
 
+def require_health_consent(topics: list[str] | None = None) -> None:
+    """Health results are opt-in, enforced here as well as in the UI."""
+    consent = store.get_consent()
+    if not consent.get("health"):
+        raise HTTPException(403, "Health results are hidden until you opt in.")
+    for topic in topics or []:
+        if not consent.get(f"topic.{topic}"):
+            raise HTTPException(403, f"Opt in to the {topic} topic first.")
+
+
+@router.get("/consent")
+def get_consent():
+    return store.get_consent()
+
+
+class ConsentChange(BaseModel):
+    name: str
+    granted: bool
+
+
+@router.put("/consent")
+def set_consent(change: ConsentChange):
+    try:
+        return store.set_consent(change.name, change.granted)
+    except KeyError:
+        raise HTTPException(422, f"Unknown consent {change.name!r}.") from None
+
+
 @router.get("/samples/{sample_id}/clinvar/summary")
 def clinvar_summary(sample_id: str):
-    """Counts only, by category, tier and topic: safe to show before opt-in."""
+    """Counts by category, tier and topic (after opt-in)."""
+    require_health_consent()
     con = _annotation_or_409(sample_id)
     try:
         rows = con.execute(
@@ -123,6 +153,9 @@ def clinvar_findings(
     """Health findings. Sensitive topics (APOE, hereditary cancer, Parkinson's,
     Huntington's) are left out unless named in ``topic``; each has its own
     consent gate in the UI."""
+    if topic and (bad := [t for t in topic if t not in TOPICS]):
+        raise HTTPException(422, f"Unknown topic {bad[0]!r}.")
+    require_health_consent(topic)
     where, args = ["status = ?", "stars >= ?"], [status, min_stars]
     if sig:
         if bad := [s for s in sig if s not in SIG_CATS]:
@@ -130,8 +163,6 @@ def clinvar_findings(
         where.append(_in("sig_cat", sig))
         args += sig
     if topic:
-        if bad := [t for t in topic if t not in TOPICS]:
-            raise HTTPException(422, f"Unknown topic {bad[0]!r}.")
         where.append(f"(sensitive_topic IS NULL OR {_in('sensitive_topic', topic)})")
         args += topic
     else:

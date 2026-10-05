@@ -51,6 +51,9 @@ def test_genome_endpoints(env):  # noqa: F811
         markers = client.get(f"{base}/markers").json()
         assert {m["probe_id"] for m in markers["traits"]} >= {"rs111", "rs222"}
         assert markers["health"] == []  # not without opt-in
+        no_consent = client.get(f"{base}/markers", params={"health": True}).json()
+        assert no_consent["health"] == []  # opt-in is enforced server-side
+        client.put("/api/consent", json={"name": "health", "granted": True})
         health = client.get(f"{base}/markers", params={"health": True}).json()
         assert {m["probe_id"] for m in health["health"]} == {"rs111"}  # 3-star P
 
@@ -65,3 +68,26 @@ def test_genome_endpoints(env):  # noqa: F811
             f"/api/samples/{sample['id']}/coverage", params={"gene": "a'b"}
         )
         assert bad.status_code == 422
+
+
+def test_variant_detail(env):  # noqa: F811
+    manager.install()
+    sample = import_sample(env)
+    with TestClient(create_app(), base_url="http://127.0.0.1") as client:
+        url = f"/api/samples/{sample['id']}/variant"
+        hidden = client.get(url, params={"chrom": "1", "pos": 1000}).json()
+        assert [c["probe_id"] for c in hidden["calls"]] == ["rs111"]
+        assert hidden["clinvar"] == [] and hidden["clinvar_hidden"] == 2
+        assert {t["risk_allele"] for t in hidden["traits"]} == {"G"}
+
+        client.put("/api/consent", json={"name": "health", "granted": True})
+        shown = client.get(url, params={"chrom": "1", "pos": 1000}).json()
+        copies = {r["vcv_id"]: r["your_copies"] for r in shown["clinvar"]}
+        assert copies == {11: 1, 12: 0}  # ALT G carried once, ALT T not at all
+
+        apoe = client.get(url, params={"chrom": "19", "pos": 45412079}).json()
+        assert apoe["clinvar"] == [] and apoe["clinvar_hidden"] == 1  # topic gate
+        assert apoe["curated"] == []
+
+        assert client.get(url, params={"chrom": "1", "pos": 5}).status_code == 404
+        assert client.get(url, params={"chrom": "99", "pos": 5}).status_code == 422

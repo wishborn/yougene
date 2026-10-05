@@ -4,6 +4,7 @@ import { Badge, Input, Pagination, Select } from "@particle-academy/react-fancy"
 import { FancyDataGrid, type FancyGridColumn, type FancyGridState } from "@particle-academy/fancy-grid";
 import { api, type Call } from "../api";
 import { CHROMS } from "../format";
+import { VariantDrawer } from "./VariantDrawer";
 
 const PAGE_SIZE = 50;
 const CALL_TYPES = [
@@ -25,6 +26,7 @@ type Filters = { chrom: string; callType: string; probe: string; alleles: string
 
 export function CallsGrid({ sampleId }: { sampleId: string }) {
   const [state, setState] = useState<FancyGridState>(INITIAL_STATE);
+  const [target, setTarget] = useState<{ chrom: string; pos: number } | null>(null);
   const [filters, setFilters] = useState<Filters>({ chrom: "", callType: "", probe: "", alleles: "" });
   const page = state.pagination?.pageIndex ?? 0;
 
@@ -46,7 +48,13 @@ export function CallsGrid({ sampleId }: { sampleId: string }) {
   });
 
   const columns = useMemo<FancyGridColumn<Call>[]>(() => [
-    { id: "probe_id", header: "Probe", sortable: true },
+    { id: "probe_id", header: "Probe", sortable: true,
+      cell: (value, row) => (
+        <button type="button" className="text-left text-brand underline-offset-2 hover:underline"
+          onClick={() => setTarget({ chrom: row.chrom, pos: row.pos })} aria-label={`Details for ${String(value)}`}>
+          {String(value)}
+        </button>
+      ) },
     { id: "chrom", header: "Chr", sortable: true },
     { id: "pos", header: "Position (GRCh37)", sortable: true, align: "end",
       cell: value => (value as number).toLocaleString() },
@@ -96,6 +104,7 @@ export function CallsGrid({ sampleId }: { sampleId: string }) {
           onStateChange={onStateChange} serverSide rowCount={total} getRowId={row => row.probe_id}
           emptyMessage={calls.isPending ? "Loading…" : "No calls match these filters."} />
       </div>
+      <VariantDrawer sampleId={sampleId} target={target} onClose={() => setTarget(null)} />
       <Pagination page={page + 1} totalPages={totalPages}
         onPageChange={next => setState(s => ({ ...s, pagination: { pageIndex: next - 1, pageSize: PAGE_SIZE } }))} />
     </section>

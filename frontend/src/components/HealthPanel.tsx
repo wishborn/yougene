@@ -2,7 +2,7 @@ import { useMemo, useState } from "react";
 import { keepPreviousData, useQuery } from "@tanstack/react-query";
 import { Badge, Button, Callout, Checkbox, Modal, Pagination, Switch } from "@particle-academy/react-fancy";
 import { findingsApi, genomeApi, type ClinvarFinding } from "../api";
-import { setConsent, useConsent } from "../consent";
+import { useConsent, useSetConsent } from "../consent";
 
 const TOPICS: Record<string, { title: string; explain: string }> = {
   apoe: {
@@ -136,6 +136,7 @@ function FindingCard({ row, coverage }: { row: ClinvarFinding; coverage?: Covera
 
 export function HealthPanel({ sampleId }: { sampleId: string }) {
   const consent = useConsent();
+  const setConsent = useSetConsent();
   const [page, setPage] = useState(0);
   const [showWeak, setShowWeak] = useState(false);
   const [onlyActionable, setOnlyActionable] = useState(true);
@@ -173,7 +174,7 @@ export function HealthPanel({ sampleId }: { sampleId: string }) {
           reports. Consumer DNA arrays are not clinical tests: rare results are often wrong, a clear result never rules a
           condition out, and nothing here is a diagnosis.
         </Callout>
-        <Gate title="Show health results" onAccept={() => setConsent("health", true)}
+        <Gate title="Show health results" onAccept={() => void setConsent("health", true)}
           explain="You'll see variants in your file that ClinVar links to medical conditions, with how strong the evidence is and how reliable array calls are for each. Some results can be worrying; several topics (APOE, hereditary cancer, Parkinson's, Huntington's) stay hidden behind their own extra step. You can hide health results again at any time." />
       </section>
     );
@@ -185,12 +186,12 @@ export function HealthPanel({ sampleId }: { sampleId: string }) {
       <div className="flex flex-wrap items-center gap-4">
         <Switch label="Only significant findings" checked={onlyActionable} onCheckedChange={v => { setOnlyActionable(v); setPage(0); }} />
         <Switch label="Include weakly reviewed reports" checked={showWeak} onCheckedChange={v => { setShowWeak(v); setPage(0); }} />
-        <Button size="sm" variant="ghost" onClick={() => setConsent("health", false)}>Hide health results</Button>
+        <Button size="sm" variant="ghost" onClick={() => void setConsent("health", false)}>Hide health results</Button>
       </div>
       <div className="flex flex-wrap gap-2">
         {Object.entries(TOPICS).map(([id, topic]) => consent[`topic.${id}`]
-          ? <Button key={id} size="sm" variant="ghost" onClick={() => setConsent(`topic.${id}`, false)}>Hide {topic.title}</Button>
-          : <Gate key={id} title={`Show ${topic.title}`} explain={topic.explain} onAccept={() => setConsent(`topic.${id}`, true)} />)}
+          ? <Button key={id} size="sm" variant="ghost" onClick={() => void setConsent(`topic.${id}`, false)}>Hide {topic.title}</Button>
+          : <Gate key={id} title={`Show ${topic.title}`} explain={topic.explain} onAccept={() => void setConsent(`topic.${id}`, true)} />)}
       </div>
       <p className="text-sm text-zinc-500" data-testid="health-total">{total.toLocaleString()} findings</p>
       <ul className="space-y-3">{(findings.data?.rows ?? []).map(row => <FindingCard key={`${row.vcv_id}-${row.probe_id}`} row={row} coverage={coverage.data?.genes} />)}</ul>

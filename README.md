@@ -73,7 +73,7 @@ After reference data is installed, every sample is matched against it automatica
 
 - **ClinVar:** matched by GRCh37 position (so 23andMe internal ids and renamed rsids count) and only reported as carried when your called letters are among the site's known alleles and include the variant allele. Each finding has review stars, an evidence tier (established, moderate, limited, research only), zygosity, and a rare-variant warning when population frequency is below 0.1% or unknown. Insertion/deletion probes are never matched.
 - **GWAS Catalog:** matched by rsid. Risk-allele strand is checked against your alleles and ClinVar's: `confirmed`, `flipped` (reported on the other strand), `assumed` (only one allele known), or `ambiguous` (A/T or C/G site where you're homozygous; not counted).
-- **Health results are opt-in** in the UI, and APOE, hereditary cancer genes, Parkinson's genes and HTT each sit behind their own extra consent step. Consent is stored in this browser and can be withdrawn.
+- **Health results are opt-in**, and APOE, hereditary cancer genes, Parkinson's genes and HTT each sit behind their own extra consent step. Consent is stored by the local server for the whole install (`GET/PUT /api/consent`), enforced by the API as well as the UI, can be withdrawn at any time (withdrawing health withdraws every topic and drops cached results), and is cleared by "delete all data".
 - Speed: about 10 seconds for a million calls against the full ClinVar and GWAS Catalog.
 
 For the browser smoke test, invented reference files lined up with the synthetic fixtures can be generated and installed into the throwaway data folder:
@@ -82,6 +82,14 @@ For the browser smoke test, invented reference files lined up with the synthetic
 .venv\Scripts\python -m yougene.testing.synth_reference --sample backend\tests\fixtures\synthetic\male.txt -o $env:TEMP\yg-ref
 .venv\Scripts\yougene refdata install --file clinvar=$env:TEMP\yg-ref\clinvar.vcf.gz --file gwas=$env:TEMP\yg-ref\gwas.zip --file cytoband=$env:TEMP\yg-ref\cytoBand.txt.gz
 ```
+
+## Medicines (pharmacogenomics)
+
+Curated, array-callable CPIC rules for CYP2C19, CYP2C9, VKORC1, SLCO1B1, DPYD, TPMT, NUDT15 and CYP3A5 (`analysis/pgx.py`). Each defining allele is checked against its ClinVar record's plus-strand alleles; a gene gets a phenotype only when every defining position was read. Results are partial (arrays can't phase or see copy number; CYP2D6 isn't reported) and are never dosing advice.
+
+## Variant detail
+
+Clicking a probe in the calls grid opens everything known about that position: the call(s), ClinVar records with how many copies you carry (after opt-in; sensitive topics need their own), trait associations, and any curated trait or medicine rule that uses it (`GET /api/samples/{id}/variant?chrom=&pos=`).
 
 ## Checks
 
