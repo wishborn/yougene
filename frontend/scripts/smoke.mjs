@@ -96,6 +96,11 @@ try {
   await page.getByRole("button", { name: "2", exact: true }).first().click();
   await page.waitForTimeout(300);
 
+  // Lineage needs no reference data (both trees ship with the app).
+  await nav("Lineage");
+  await page.getByTestId("maternal-line").locator("p, [data-testid=maternal-haplogroup]").first().waitFor();
+  await page.getByTestId("paternal-line").locator("p, [data-testid=paternal-haplogroup]").first().waitFor();
+
   if (withReference) {
     await nav("Traits");
     await page.getByTestId("known-trait").nth(5).waitFor();

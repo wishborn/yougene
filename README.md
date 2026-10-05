@@ -4,9 +4,9 @@ Explore your own DNA locally. Load a raw genotype file (23andMe first) and brows
 
 - Backend: Python (FastAPI, DuckDB)
 - Frontend: React 19 + Tailwind v4 + the Fancy UI kit
-- Reference data: ClinVar and the GWAS Catalog, downloaded locally (coming next)
+- Reference data: ClinVar and the GWAS Catalog, downloaded locally on request
 
-Status: feature-complete first version. Import raw data from 23andMe, AncestryDNA, MyHeritage, FamilyTreeDNA, Living DNA or a VCF/gVCF (several people per install); see file quality, curated traits, GWAS trait associations, medicines (pharmacogenomics), a chromosome explorer, and opt-in health results from ClinVar.
+Status: feature-complete first version. Import raw data from 23andMe, AncestryDNA, MyHeritage, FamilyTreeDNA, Living DNA or a VCF/gVCF (several people per install); see file quality, curated traits, GWAS trait associations, medicines (pharmacogenomics), maternal and paternal lineage (haplogroups), a chromosome explorer, and opt-in health results from ClinVar.
 
 ## Development (Windows PowerShell)
 
@@ -97,6 +97,14 @@ For the browser smoke test, invented reference files lined up with the synthetic
 ## Medicines (pharmacogenomics)
 
 Curated, array-callable CPIC rules for CYP2C19, CYP2C9, VKORC1, SLCO1B1, DPYD, TPMT, NUDT15 and CYP3A5 (`analysis/pgx.py`). Each defining allele is checked against its ClinVar record's plus-strand alleles; a gene gets a phenotype only when every defining position was read. Results are partial (arrays can't phase or see copy number; CYP2D6 isn't reported) and are never dosing advice.
+
+## Lineage (haplogroups)
+
+The Lineage page needs no download: both trees ship with YouGene.
+
+- **Maternal (mtDNA)**: PhyloTree Build 17 in the haplogrep team's rCRS-oriented form ([phylotree-rcrs-17](https://github.com/genepi/phylotree-rcrs-17) 17.3, MIT; `backend/yougene/haplogroups/data/`, rebuilt with `python scripts/build_mt_tree.py`, which checks pinned SHA-256s). YouGene's own method (`haplogroups/mt.py`): a likelihood over every haplogroup using only the positions the file tested, with per-position error from genotyping plus how often that mutation recurs in the tree. The answer is the most specific branch with at least 99% probability *and* one of its own defining mutations seen; a likelier deeper branch is shown as "possibly". On simulated array data this was wrong under 1% of the time, where nearest-match scoring (haplogrep's Kulczynski, designed for full sequences) was wrong 3-20% of the time; sparse files get broader answers instead of guesses. Indels and two-letter MT calls aren't used. A plain VCF's unlisted MT positions are taken as rCRS (as haplogrep does) and the page says so.
+- **Paternal (Y)**: [yhaplo](https://github.com/23andMe/yhaplo) (23andMe, ISOGG 2016 tree), pinned to a commit, run in memory on single-copy Y calls of samples inferred XY. **yhaplo's licence allows non-commercial use only**, and its software was developed by 23andMe, Inc.; that's fine for personal use but matters if YouGene is ever offered commercially.
+- VCF fixes that came with this: GRCh38 `chrM` (rCRS) is no longer pushed through the hg38-to-hg19 chain onto hg19's Yoruba chrM, and an hg19 VCF whose chrM is the Yoruba sequence (length 16571) has its MT calls left out with a note, since its positions don't match rCRS.
 
 ## Gene lookup
 

@@ -246,3 +246,35 @@ export type GeneView = {
 export const geneApi = {
   get: (id: string, symbol: string) => request<GeneView>(`/api/samples/${id}/gene/${encodeURIComponent(symbol)}`),
 };
+
+export type LineageStep = {
+  haplogroup: string;
+  markers: { mutation: string; name?: string; status: "present" | "absent" | "untested" | "reverted" }[];
+};
+
+type LineStatus = "ok" | "insufficient" | "unresolved" | "reference_mismatch" | "no_data" | "no_y" | "sex_unknown";
+
+export type MaternalLine = {
+  status: LineStatus; tested?: number; informative?: number; assumed_reference?: boolean;
+  haplogroup?: string; probability?: number; possibly?: { haplogroup: string; probability: number } | null;
+  lineage?: LineageStep[];
+};
+
+export type PaternalLine = {
+  status: LineStatus; tested?: number; informative?: number;
+  haplogroup?: string; short_name?: string; observed_name?: string; derived?: number; ancestral?: number;
+  lineage?: LineageStep[];
+};
+
+export type Haplogroups = {
+  maternal: MaternalLine;
+  paternal: PaternalLine;
+  sources: {
+    maternal: { tree: { name: string; version: string; url: string; licence: string; citations: string[] }; method: string };
+    paternal: { tool: string; url: string; tree: string; licence: string };
+  };
+};
+
+export const haplogroupApi = {
+  get: (id: string) => request<Haplogroups>(`/api/samples/${id}/haplogroups`),
+};

@@ -31,6 +31,8 @@ Never point the smoke test at the real site's data.
 Imports: `importers/` (format detection + DuckDB load into the normalised
 `calls` table), `analysis/qc.py`, `store.py` (registry + per-sample DBs),
 `jobs.py` (one background worker), `api.py`. GRCh37 facts in `genome.py`.
+Haplogroups: `haplogroups/` (mtDNA classifier of our own over bundled
+PhyloTree 17; Y via yhaplo, non-commercial licence). MT positions are rCRS.
 
 Pages: Inertia via `fancy-inertia-server` (backend `pages.py`) and
 `@inertiajs/react` v2 (frontend `src/pages/**`, layout in `src/layout`). Keep
