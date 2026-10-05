@@ -101,8 +101,11 @@ def install(
         source = SOURCES[source_id]
         existing = downloads / source.filename
         if not refresh and existing.exists():
-            fetched[source_id] = {"source": source_id, "path": str(existing),
-                                  "reused_download": True}
+            fetched[source_id] = {
+                "source": source_id,
+                "path": str(existing),
+                "reused_download": True,
+            }
             continue
 
         def report(done: int, total: int | None, i=index, title=source.title) -> None:

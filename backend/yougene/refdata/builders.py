@@ -56,6 +56,8 @@ def build_clinvar(con, path: Path) -> dict:
                 'rs' || split_part({_info("RS")}, '|', 1) AS rsid,
                 {_info("CLNVC")} AS clnvc,
                 {_info("CLNSIG")} AS sig_raw,
+                lower(split_part({_info("CLNSIG")}, '|', 1)) AS sig1,
+                lower({_info("CLNSIG")}) AS sigl,
                 {_info("CLNREVSTAT")} AS revstat,
                 {_info("CLNDN")} AS clndn,
                 {_info("CLNDISDB")} AS clndisdb,
@@ -72,26 +74,26 @@ def build_clinvar(con, path: Path) -> dict:
             sig_raw,
             CASE
                 WHEN sig_raw IS NULL THEN 'none'
-                WHEN regexp_matches(lower(split_part(sig_raw, '|', 1)),
+                WHEN regexp_matches(sig1,
                     '^pathogenic/likely_pathogenic') THEN 'pathogenic_likely'
-                WHEN regexp_matches(lower(split_part(sig_raw, '|', 1)), '^pathogenic')
+                WHEN regexp_matches(sig1, '^pathogenic')
                     THEN 'pathogenic'
-                WHEN regexp_matches(lower(split_part(sig_raw, '|', 1)), '^likely_pathogenic')
+                WHEN regexp_matches(sig1, '^likely_pathogenic')
                     THEN 'likely_pathogenic'
-                WHEN regexp_matches(lower(split_part(sig_raw, '|', 1)), '^uncertain')
+                WHEN regexp_matches(sig1, '^uncertain')
                     THEN 'uncertain'
-                WHEN regexp_matches(lower(split_part(sig_raw, '|', 1)), '^conflicting')
+                WHEN regexp_matches(sig1, '^conflicting')
                     THEN 'conflicting'
-                WHEN regexp_matches(lower(split_part(sig_raw, '|', 1)),
+                WHEN regexp_matches(sig1,
                     '^(benign/likely_benign|benign|likely_benign)') THEN 'benign'
-                WHEN regexp_matches(lower(sig_raw), 'drug_response') THEN 'drug_response'
-                WHEN regexp_matches(lower(sig_raw), 'risk_factor') THEN 'risk_factor'
-                WHEN regexp_matches(lower(sig_raw), 'protective') THEN 'protective'
-                WHEN regexp_matches(lower(sig_raw), 'association') THEN 'association'
-                WHEN regexp_matches(lower(sig_raw), 'not_provided') THEN 'not_provided'
+                WHEN regexp_matches(sigl, 'drug_response') THEN 'drug_response'
+                WHEN regexp_matches(sigl, 'risk_factor') THEN 'risk_factor'
+                WHEN regexp_matches(sigl, 'protective') THEN 'protective'
+                WHEN regexp_matches(sigl, 'association') THEN 'association'
+                WHEN regexp_matches(sigl, 'not_provided') THEN 'not_provided'
                 ELSE 'other'
             END AS sig_cat,
-            regexp_matches(lower(sig_raw), 'low_penetrance') AS low_penetrance,
+            regexp_matches(sigl, 'low_penetrance') AS low_penetrance,
             revstat,
             coalesce(CASE revstat {stars} END, 0)::UTINYINT AS stars,
             list_transform(string_split(replace(clndn, '_', ' '), '|'), x -> trim(x))
