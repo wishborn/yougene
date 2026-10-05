@@ -6,7 +6,7 @@ Explore your own DNA locally. Load a raw genotype file (23andMe first) and brows
 - Frontend: React 19 + Tailwind v4 + the Fancy UI kit
 - Reference data: ClinVar and the GWAS Catalog, downloaded locally (coming next)
 
-Status: P1. You can import 23andMe raw data files (several people per install), see a quality summary and inferred sex chromosomes, and browse every call in a server-paged grid. Annotation (ClinVar, GWAS, pharmacogenomics) and proper page routing come next. The current screen is a temporary development workspace.
+Status: feature-complete first version. Import raw data from 23andMe, AncestryDNA, MyHeritage, FamilyTreeDNA, Living DNA or a VCF/gVCF (several people per install); see file quality, curated traits, GWAS trait associations, medicines (pharmacogenomics), a chromosome explorer, and opt-in health results from ClinVar.
 
 ## Development (Windows PowerShell)
 
@@ -31,6 +31,13 @@ Ports: Vite uses `PORT` (Genie injects it) or 5180; the API uses `YOUGENE_API_PO
 Data lives in `platformdirs.user_data_dir("yougene")`. Set `YOUGENE_DATA_DIR` to use another folder; the backend refuses locations inside a source checkout. Layout: `registry.duckdb` (samples), `samples/<id>.duckdb` (one per sample), `tmp/` (uploads in flight, emptied after each import).
 
 On macOS/Linux, use `.venv/bin/python` and `.venv/bin/yougene`.
+
+## Pages and routing
+
+Pages are served with the Inertia protocol by [`fancy-inertia-server`](https://github.com/Particle-Academy/fancy-inertia-server) (pinned to a commit; not on PyPI yet) and rendered by `@inertiajs/react` v2 under Fancy's `buildFancyAppTree` (toast provider, ECharts modules, and the "new version available" alert driven by the asset version). Routes: `/` (samples and import), `/settings`, and `/samples/{id}` with `/calls`, `/chromosomes`, `/traits`, `/medicines`, `/health`. Data-heavy views still load from `/api` with TanStack Query.
+
+- **Development** (`scripts/dev.py` sets `YOUGENE_DEV=1`): Vite fronts the site and proxies every non-Vite path to FastAPI, so pages, API and hot reload share one origin. The root template loads `/@vite/client`, the React-refresh preamble and `/src/main.tsx`.
+- **Production** (`npm --prefix frontend run build`, then `yougene serve`): FastAPI serves `frontend/dist` under `/build`, reads script and style tags from the Vite manifest, and uses a hash of the manifest as the Inertia asset version (a stale client gets a bare 409 and the update alert).
 
 ## Genie Site
 

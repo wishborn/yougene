@@ -32,6 +32,8 @@ Imports: `importers/` (format detection + DuckDB load into the normalised
 `calls` table), `analysis/qc.py`, `store.py` (registry + per-sample DBs),
 `jobs.py` (one background worker), `api.py`. GRCh37 facts in `genome.py`.
 
-Routing is pending `fancy-inertia-server` (being built by the Fancy team). The
-current screen is a temporary workspace. Memoize chart options and grid data,
-pass every fancy-grid state slice explicitly, and follow installed Fancy types.
+Pages: Inertia via `fancy-inertia-server` (backend `pages.py`) and
+`@inertiajs/react` v2 (frontend `src/pages/**`, layout in `src/layout`). Keep
+`@inertiajs/react` on ^2 (the adapter doesn't do v3 props). Memoize chart
+options and grid data, pass every fancy-grid state slice explicitly, and follow
+installed Fancy types.
