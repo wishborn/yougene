@@ -238,11 +238,17 @@ def test_findings_api(env):
         base = f"/api/samples/{sample['id']}"
         assert client.get(f"{base}/annotation").json()["state"] == "current"
 
+        assert client.get(f"{base}/clinvar/summary").status_code == 403
+        assert client.get(f"{base}/clinvar").status_code == 403
+        client.put("/api/consent", json={"name": "health", "granted": True})
         summary = client.get(f"{base}/clinvar/summary").json()["counts"]
         assert sum(c["count"] for c in summary) == 4  # 11, 15, 16, 19
 
         default = client.get(f"{base}/clinvar").json()
         assert {r["vcv_id"] for r in default["rows"]} == {11, 15, 16}  # APOE gated
+        gated = client.get(f"{base}/clinvar", params={"topic": "apoe"})
+        assert gated.status_code == 403  # topic needs its own opt-in
+        client.put("/api/consent", json={"name": "topic.apoe", "granted": True})
         with_apoe = client.get(f"{base}/clinvar", params={"topic": "apoe"}).json()
         assert 19 in {r["vcv_id"] for r in with_apoe["rows"]}
         strict = client.get(f"{base}/clinvar", params={"min_stars": 3}).json()

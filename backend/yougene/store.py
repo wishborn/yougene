@@ -34,7 +34,12 @@ CREATE TABLE IF NOT EXISTS samples (
     qc           JSON NOT NULL,
     created_at   TIMESTAMP NOT NULL,
     updated_at   TIMESTAMP NOT NULL
-)
+);
+CREATE TABLE IF NOT EXISTS consent (
+    name       VARCHAR PRIMARY KEY,  -- 'health' or 'topic.<topic>'
+    granted    BOOLEAN NOT NULL,
+    updated_at TIMESTAMP NOT NULL
+);
 """
 
 FIELDS = [
@@ -205,3 +210,36 @@ def open_sample(sample_id: str):
     if not path.exists():
         raise KeyError(sample_id)
     return connect(path, read_only=True)
+
+
+CONSENT_NAMES = {"health", "topic.apoe", "topic.hereditary_cancer",
+                 "topic.parkinsons", "topic.huntington"}  # fmt: skip
+
+
+def get_consent() -> dict[str, bool]:
+    """Opt-ins for sensitive results, for this install (every sample)."""
+    with _lock:
+        con = _registry()
+        try:
+            rows = con.execute("SELECT name, granted FROM consent").fetchall()
+        finally:
+            con.close()
+    return {name: bool(granted) for name, granted in rows}
+
+
+def set_consent(name: str, granted: bool) -> dict[str, bool]:
+    if name not in CONSENT_NAMES:
+        raise KeyError(name)
+    now = datetime.now(UTC).replace(tzinfo=None)
+    with _lock:
+        con = _registry()
+        try:
+            con.execute(
+                "INSERT OR REPLACE INTO consent VALUES (?, ?, ?)", [name, granted, now]
+            )
+            if name == "health" and not granted:
+                # Withdrawing health consent withdraws every topic too.
+                con.execute("UPDATE consent SET granted = false, updated_at = ?", [now])
+        finally:
+            con.close()
+    return get_consent()

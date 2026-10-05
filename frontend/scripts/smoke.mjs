@@ -26,6 +26,10 @@ try {
     // The duplicate-import check answers 409 on purpose; Chrome logs every 4xx.
     if (message.type() === "error" && !/status of 409/.test(message.text())) errors.push(message.text());
   });
+  const failed = [];
+  page.on("response", response => {
+    if (response.status() >= 400 && response.status() !== 409) failed.push(`${response.status()} ${response.request().method()} ${response.url()}`);
+  });
   page.on("request", request => {
     const url = new URL(request.url());
     if (!["yougene.gen", "127.0.0.1", "localhost"].includes(url.hostname) && ["http:", "https:"].includes(url.protocol)) {
@@ -75,6 +79,12 @@ try {
   await page.waitForFunction(() =>
     [...document.querySelectorAll("[data-fancy-grid-row]")].every(row => row.textContent?.includes("no call")));
   await page.getByLabel("Call type").selectOption("");
+
+  // Variant detail drawer from the first probe in the grid.
+  await page.locator("[data-fancy-grid-row] button").first().click();
+  await page.getByTestId("variant-detail").waitFor();
+  await page.keyboard.press("Escape");
+  await page.getByTestId("variant-detail").waitFor({ state: "detached" });
 
   // Page 2 of the calls.
   await page.getByRole("button", { name: "2", exact: true }).first().click();
@@ -153,6 +163,7 @@ try {
   await page.screenshot({ path: join(artifacts, "mobile.png"), fullPage: true });
 
   assert.deepEqual(external, [], "external requests");
+  assert.deepEqual(failed, [], "failed requests");
   assert.deepEqual(errors, [], "browser errors");
   console.log(JSON.stringify({ result: "PASS", origin, withReference, paginationDark, artifacts }, null, 2));
 } finally {

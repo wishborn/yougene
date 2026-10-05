@@ -217,3 +217,32 @@ def test_gen_origin_allowed_when_configured(monkeypatch, tmp_path):
             headers={"origin": "https://yougene.gen"},
         )
     assert response.status_code == 204
+
+
+def test_consent_round_trip_and_withdrawal(client):
+    assert client.get("/api/consent").json() == {}
+    client.put("/api/consent", json={"name": "health", "granted": True})
+    state = client.put(
+        "/api/consent", json={"name": "topic.apoe", "granted": True}
+    ).json()
+    assert state == {"health": True, "topic.apoe": True}
+    state = client.put("/api/consent", json={"name": "health", "granted": False}).json()
+    assert state == {
+        "health": False,
+        "topic.apoe": False,
+    }  # withdrawing health withdraws topics
+    assert (
+        client.put(
+            "/api/consent", json={"name": "everything", "granted": True}
+        ).status_code
+        == 422
+    )
+    bad = client.put(
+        "/api/consent",
+        json={"name": "health", "granted": True},
+        headers={"origin": "https://evil.example"},
+    )
+    assert bad.status_code == 403
+    client.put("/api/consent", json={"name": "health", "granted": True})
+    client.request("DELETE", "/api/data", json={"confirm": "DELETE ALL"})
+    assert client.get("/api/consent").json() == {}  # delete-all clears consent

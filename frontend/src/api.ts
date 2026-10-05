@@ -208,3 +208,22 @@ export type PgxGene = {
 export const pgxApi = {
   list: (id: string) => request<{ genes: PgxGene[] }>(`/api/samples/${id}/pgx`).then(r => r.genes),
 };
+
+export type VariantDetail = {
+  chrom: string; pos: number;
+  calls: { probe_id: string; id_kind: string; alleles: string; ploidy: number | null; call_type: string;
+    dup_group: number | null; dup_conflict: boolean }[];
+  clinvar: { vcv_id: number; rsid: string | null; ref: string; alt: string; sig_cat: string; stars: number;
+    conditions: string[] | null; genes: string[] | null; consequences: string[] | null; revstat: string | null;
+    your_copies: number | null; sensitive_topic: string | null }[];
+  clinvar_hidden: number;
+  traits: { mapped_trait: string; reported_trait: string; risk_allele: string; dosage: number | null; strand: string;
+    effect: number | null; effect_type: string; beta_direction: string | null; p_value: string; p_mlog: number;
+    pmid: number | null; first_author: string; published: string | null }[];
+  curated: { kind: "trait" | "medicine"; id: string; title: string }[];
+};
+
+export const variantApi = {
+  get: (id: string, chrom: string, pos: number) =>
+    request<VariantDetail>(`/api/samples/${id}/variant?chrom=${encodeURIComponent(chrom)}&pos=${pos}`),
+};

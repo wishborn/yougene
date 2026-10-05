@@ -9,6 +9,7 @@ from fastapi import APIRouter, HTTPException, Query
 from yougene import store
 from yougene.analysis import genome, pgx
 from yougene.analysis import known_traits as known_traits_module
+from yougene.annotate.engine import SENSITIVE_GENES
 from yougene.db import connect
 from yougene.genome import CHROMS
 from yougene.refdata import manager
@@ -94,7 +95,8 @@ def markers(sample_id: str, health: bool = False):
             "AND strand IN ('confirmed', 'flipped', 'assumed') ORDER BY chrom, pos"
         ).fetchall()
         health_rows = []
-        if health:
+        # Health markers need the install-wide opt-in, whatever the caller asks.
+        if health and store.get_consent().get("health"):
             health_rows = con.execute(
                 "SELECT DISTINCT chrom, pos, probe_id FROM clinvar_findings "
                 "WHERE status = 'carried' AND sensitive_topic IS NULL "
@@ -172,3 +174,108 @@ def pharmacogenomics(sample_id: str):
         return {"genes": pgx.evaluate(con)}
     finally:
         con.close()
+
+
+@router.get("/samples/{sample_id}/variant")
+def variant_detail(
+    sample_id: str,
+    chrom: str,
+    pos: Annotated[int, Query(ge=1)],
+):
+    """Everything known about one position: this sample's call(s), ClinVar
+    records there (only after opt-in; sensitive topics need their own), trait
+    associations for the probe, and curated trait / medicine rules using it."""
+    _sample_or_404(sample_id)
+    if chrom not in CHROMS:
+        raise HTTPException(422, f"Unknown chromosome {chrom!r}.")
+    con = store.open_sample(sample_id)
+    try:
+        cursor = con.execute(
+            "SELECT probe_id, id_kind, alleles, ploidy, call_type, dup_group, "
+            "dup_conflict FROM calls WHERE chrom = ? AND pos = ? ORDER BY probe_id",
+            [chrom, pos],
+        )
+        names = [d[0] for d in cursor.description]
+        calls = [dict(zip(names, r, strict=True)) for r in cursor.fetchall()]
+    finally:
+        con.close()
+    if not calls:
+        raise HTTPException(404, "This sample has no call at that position.")
+    probes = [c["probe_id"] for c in calls]
+
+    clinvar, hidden = [], 0
+    ref = manager.open_reference()
+    if ref is not None:
+        try:
+            cursor = ref.execute(
+                "SELECT vcv_id, rsid, ref, alt, sig_cat, stars, conditions, genes, "
+                "consequences, revstat FROM clinvar WHERE chrom = ? AND pos = ? "
+                "ORDER BY stars DESC, vcv_id",
+                [chrom, pos],
+            )
+            names = [d[0] for d in cursor.description]
+            records = [dict(zip(names, r, strict=True)) for r in cursor.fetchall()]
+        finally:
+            ref.close()
+        consent = store.get_consent()
+        called = [c["alleles"] for c in calls if c["call_type"] == "snp"]
+        for record in records:
+            topic = next(
+                (
+                    SENSITIVE_GENES[g]
+                    for g in record["genes"] or []
+                    if g in SENSITIVE_GENES
+                ),
+                None,
+            )
+            allowed = consent.get("health") and (
+                topic is None or consent.get(f"topic.{topic}")
+            )
+            if not allowed:
+                hidden += 1
+                continue
+            single = len(record["ref"]) == 1 and len(record["alt"]) == 1
+            record["your_copies"] = (
+                max((a.count(record["alt"]) for a in called), default=None)
+                if single and called
+                else None
+            )
+            record["sensitive_topic"] = topic
+            clinvar.append(record)
+
+    traits = []
+    annot = store.open_annotation(sample_id)
+    if annot is not None:
+        try:
+            cursor = annot.execute(
+                "SELECT mapped_trait, reported_trait, risk_allele, dosage, strand, "
+                "effect, effect_type, beta_direction, p_value, p_mlog, pmid, "
+                "first_author, published FROM gwas_findings "
+                f"WHERE probe_id IN ({', '.join('?' for _ in probes)}) "
+                "ORDER BY p_mlog DESC LIMIT 50",
+                probes,
+            )
+            names = [d[0] for d in cursor.description]
+            traits = [dict(zip(names, r, strict=True)) for r in cursor.fetchall()]
+        finally:
+            annot.close()
+
+    curated = [
+        {"kind": "trait", "id": t.id, "title": t.title}
+        for t in known_traits_module.KNOWN_TRAITS
+        if (t.chrom, t.pos) == (chrom, pos)
+    ] + [
+        {"kind": "medicine", "id": g.gene, "title": f"{g.gene} ({v.star})"}
+        for g in pgx.GENES
+        for v in g.variants
+        if (v.chrom, v.pos) == (chrom, pos)
+    ]
+    return {
+        "chrom": chrom,
+        "pos": pos,
+        "calls": calls,
+        "clinvar": clinvar,
+        "clinvar_hidden": hidden,
+        "traits": traits,
+        "curated": curated,
+    }
