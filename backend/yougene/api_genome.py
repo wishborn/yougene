@@ -7,7 +7,7 @@ from typing import Annotated
 from fastapi import APIRouter, HTTPException, Query
 
 from yougene import store
-from yougene.analysis import genome
+from yougene.analysis import genome, pgx
 from yougene.analysis import known_traits as known_traits_module
 from yougene.db import connect
 from yougene.genome import CHROMS
@@ -160,5 +160,15 @@ def known_traits(sample_id: str):
     con = store.open_sample(sample_id)
     try:
         return {"traits": known_traits_module.evaluate(con)}
+    finally:
+        con.close()
+
+
+@router.get("/samples/{sample_id}/pgx")
+def pharmacogenomics(sample_id: str):
+    _sample_or_404(sample_id)
+    con = store.open_sample(sample_id)
+    try:
+        return {"genes": pgx.evaluate(con)}
     finally:
         con.close()

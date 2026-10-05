@@ -88,6 +88,8 @@ try {
     await page.getByRole("tab", { name: "Traits" }).click();
     await page.getByTestId("known-trait").nth(5).waitFor();
     await page.getByTestId("traits-total").filter({ hasText: /^[1-9][\d,]* associations$/ }).waitFor();
+    await page.getByRole("tab", { name: "Medicines" }).click();
+    await page.getByTestId("pgx-gene").nth(7).waitFor();
     await page.getByRole("tab", { name: "Chromosomes" }).click();
     await page.getByTestId("karyotype").waitFor();
     assert.equal(await page.getByTestId("karyotype").locator("svg").count(), 24);

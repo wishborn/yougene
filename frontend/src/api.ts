@@ -197,3 +197,14 @@ export type KnownTrait = {
 export const knownTraitsApi = {
   list: (id: string) => request<{ traits: KnownTrait[] }>(`/api/samples/${id}/known-traits`).then(r => r.traits),
 };
+
+export type PgxGene = {
+  gene: string; drugs: string[]; note: string; untested_alleles: string[];
+  status: "ok" | "not_determined"; phenotype: string | null; detail: string | null;
+  positions: { rsid: string; star: string; function: string; clinvar_vcv: number; genotype: string | null;
+    status: "ok" | "not_tested" | "no_call" | "conflicting" | "unexpected" }[];
+};
+
+export const pgxApi = {
+  list: (id: string) => request<{ genes: PgxGene[] }>(`/api/samples/${id}/pgx`).then(r => r.genes),
+};
