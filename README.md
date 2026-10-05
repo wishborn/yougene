@@ -67,6 +67,22 @@ Install from the workspace ("Download reference data") or the CLI:
 
 Each build records the source URL, release date, size and SHA-256. A failed update leaves the previous database untouched. ClinVar records keep every ALT of multi-allelic sites, and a `site_alleles` table lists all known alleles per single-base site, which allele matching needs. GWAS coordinates are GRCh38, so only rsids are used to join them.
 
+## Annotation
+
+After reference data is installed, every sample is matched against it automatically (on import, and again whenever reference data is updated). Results go to `samples/<id>.annot.duckdb`.
+
+- **ClinVar:** matched by GRCh37 position (so 23andMe internal ids and renamed rsids count) and only reported as carried when your called letters are among the site's known alleles and include the variant allele. Each finding has review stars, an evidence tier (established, moderate, limited, research only), zygosity, and a rare-variant warning when population frequency is below 0.1% or unknown. Insertion/deletion probes are never matched.
+- **GWAS Catalog:** matched by rsid. Risk-allele strand is checked against your alleles and ClinVar's: `confirmed`, `flipped` (reported on the other strand), `assumed` (only one allele known), or `ambiguous` (A/T or C/G site where you're homozygous; not counted).
+- **Health results are opt-in** in the UI, and APOE, hereditary cancer genes, Parkinson's genes and HTT each sit behind their own extra consent step. Consent is stored in this browser and can be withdrawn.
+- Speed: about 10 seconds for a million calls against the full ClinVar and GWAS Catalog.
+
+For the browser smoke test, invented reference files lined up with the synthetic fixtures can be generated and installed into the throwaway data folder:
+
+```powershell
+.venv\Scripts\python -m yougene.testing.synth_reference --sample backend\tests\fixtures\synthetic\male.txt -o $env:TEMP\yg-ref
+.venv\Scripts\yougene refdata install --file clinvar=$env:TEMP\yg-ref\clinvar.vcf.gz --file gwas=$env:TEMP\yg-ref\gwas.zip --file cytoband=$env:TEMP\yg-ref\cytoBand.txt.gz
+```
+
 ## Checks
 
 ```powershell

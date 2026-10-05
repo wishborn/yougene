@@ -80,13 +80,44 @@ try {
   await page.getByRole("button", { name: "2", exact: true }).first().click();
   await page.waitForTimeout(300);
 
+  // Traits and health need reference data installed in the throwaway data dir
+  // (see README: synth_reference). Skip them cleanly when it isn't there.
+  const reference = await (await page.request.get(`${origin}/api/refdata`)).json();
+  const withReference = reference.ready === true;
+  if (withReference) {
+    await page.getByRole("tab", { name: "Traits" }).click();
+    await page.getByTestId("traits-total").filter({ hasText: /^[1-9][\d,]* associations$/ }).waitFor();
+    await page.getByRole("tab", { name: "Health" }).click();
+    assert.equal(await page.getByTestId("health-finding").count(), 0, "health shown before opt-in");
+    await page.getByRole("button", { name: "Show health results" }).click();
+    await page.getByRole("dialog").getByText("I understand and want to see these results").click();
+    await page.getByRole("dialog").getByRole("button", { name: "Show results" }).click();
+    await page.getByTestId("health-total").waitFor();
+    await page.getByRole("button", { name: /Show APOE/ }).click();
+    await page.getByRole("dialog").getByText("I understand and want to see these results").click();
+    await page.getByRole("dialog").getByRole("button", { name: "Show results" }).click();
+    await page.getByRole("button", { name: /Hide APOE/ }).waitFor();
+    await page.getByRole("button", { name: "Hide health results" }).click();
+    await page.getByRole("button", { name: "Show health results" }).waitFor();
+    await page.getByRole("tab", { name: "All calls" }).click();
+  }
+
   await page.getByRole("button", { name: /Synthetic female/ }).click();
   await page.getByTestId("qc-sex").filter({ hasText: "XX" }).waitFor();
 
+  let paginationDark = null;
   for (const mode of ["light", "dark"]) {
     await page.getByLabel("Theme", { exact: true }).selectOption(mode);
     await page.waitForFunction(dark => document.documentElement.classList.contains("dark") === dark, mode === "dark");
     await page.screenshot({ path: join(artifacts, `${mode}.png`), fullPage: true });
+    if (mode === "dark") {
+      paginationDark = await page.evaluate(() => {
+        const el = document.querySelector('[data-react-fancy-pagination] [aria-current="page"]');
+        if (!el) return null;
+        const s = getComputedStyle(el);
+        return { background: s.backgroundColor, color: s.color, opacity: s.opacity, className: el.className };
+      });
+    }
   }
 
   // Rename, then delete both samples so the data dir ends empty.
@@ -109,7 +140,7 @@ try {
 
   assert.deepEqual(external, [], "external requests");
   assert.deepEqual(errors, [], "browser errors");
-  console.log(JSON.stringify({ result: "PASS", origin, artifacts }, null, 2));
+  console.log(JSON.stringify({ result: "PASS", origin, withReference, paginationDark, artifacts }, null, 2));
 } finally {
   await browser.close();
 }

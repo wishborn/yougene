@@ -123,3 +123,46 @@ export const refdataApi = {
       body: JSON.stringify(sources ? { sources } : {}),
     }),
 };
+
+export type AnnotationState = {
+  state: "none" | "no_reference" | "stale" | "current";
+  reference: Record<string, { built_at: string; released: string | null }> | null;
+  stats?: {
+    clinvar: { records_at_tested_positions: number; carried: number; allele_mismatch: number };
+    gwas: { associations_at_tested_snps: number; carrying_risk_allele: number; by_strand: Record<string, number> };
+  };
+};
+
+export type ClinvarFinding = {
+  probe_id: string; chrom: string; pos: number; alleles: string; ploidy: number;
+  dup_conflict: boolean; vcv_id: number; rsid: string | null; ref: string; alt: string;
+  sig_cat: string; sig_raw: string | null; stars: number; revstat: string | null;
+  conditions: string[] | null; genes: string[] | null; consequences: string[] | null;
+  low_penetrance: boolean | null; max_af: number; match_via: "rsid" | "pos";
+  sensitive_topic: string | null; status: string; zygosity: string | null; dosage: number;
+  tier: "established" | "moderate" | "limited" | "research"; rare_guard: boolean;
+};
+
+export type TraitFinding = {
+  assoc_id: number; probe_id: string; chrom: string; pos: number; alleles: string;
+  ploidy: number; risk_allele: string; dosage: number | null; strand: string;
+  study_acc: string; pmid: number | null; first_author: string; published: string | null;
+  study: string; reported_trait: string; mapped_trait: string; initial_sample: string;
+  risk_af: number | null; p_mlog: number | null; p_value: string; effect: number | null;
+  effect_type: "or" | "beta" | "none"; beta_direction: string | null; ci_text: string;
+  mapped_gene: string; context: string;
+};
+
+export type Page<T> = { total: number; page: number; page_size: number; rows: T[] };
+
+export const findingsApi = {
+  state: (id: string) => request<AnnotationState>(`/api/samples/${id}/annotation`),
+  annotate: (id: string) => request<{ job_id: string }>(`/api/samples/${id}/annotate`, { method: "POST" }),
+  clinvarSummary: (id: string) =>
+    request<{ counts: { sig_cat: string; tier: string; topic: string | null; rare_guard: boolean; count: number }[] }>(
+      `/api/samples/${id}/clinvar/summary`),
+  clinvar: (id: string, params: URLSearchParams) =>
+    request<Page<ClinvarFinding>>(`/api/samples/${id}/clinvar?${params}`),
+  traits: (id: string, params: URLSearchParams) =>
+    request<Page<TraitFinding>>(`/api/samples/${id}/traits?${params}`),
+};
