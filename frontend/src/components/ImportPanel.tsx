@@ -12,10 +12,6 @@ export function ImportPanel({ onImported }: Props) {
   const [relationship, setRelationship] = useState("");
   const [jobId, setJobId] = useState<string | null>(null);
   const [duplicateOf, setDuplicateOf] = useState<string | null>(null);
-  // Remounting FileUpload clears its hidden <input>, so choosing the same file
-  // again still registers (the browser fires no change event otherwise).
-  const [pickerKey, setPickerKey] = useState(0);
-  const resetPicker = () => { setFiles([]); setPickerKey(k => k + 1); };
 
   const upload = useMutation({
     mutationFn: (replace: boolean) =>
@@ -47,7 +43,7 @@ export function ImportPanel({ onImported }: Props) {
     if (!finished) return;
     void queryClient.invalidateQueries({ queryKey: ["samples"] });
     onImported(finished);
-    resetPicker();
+    setFiles([]);
     setName("");
     setRelationship("");
   }, [finished, onImported, queryClient]);
@@ -65,14 +61,11 @@ export function ImportPanel({ onImported }: Props) {
           23andMe raw data, as the .txt file or the .zip you downloaded. The file stays on this computer.
         </p>
       </div>
-      <FileUpload key={pickerKey} value={files}
-        onChange={next => { setFiles(next.slice(-1)); setJobId(null); setDuplicateOf(null); }}
+      <FileUpload value={files}
+        onChange={next => { setFiles(next); setJobId(null); setDuplicateOf(null); }}
         accept=".txt,.zip" multiple={false} disabled={running}>
         <FileUpload.Dropzone className="text-sm">Drop the file here, or click to choose it</FileUpload.Dropzone>
         <FileUpload.List />
-        {files.length > 0 && !running && (
-          <Button size="sm" variant="ghost" onClick={resetPicker}>Choose a different file</Button>
-        )}
       </FileUpload>
       <div className="grid gap-3 sm:grid-cols-2">
         <Input label="Name" placeholder="e.g. Me, Mum, Sam" value={name} onValueChange={setName} maxLength={120} disabled={running} />
