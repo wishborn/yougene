@@ -34,9 +34,7 @@ from functools import cache
 from pathlib import Path
 
 DATA = Path(__file__).with_name("data") / "phylotree17.json"
-# The human root ("mt-MRCA") isn't a node in the rCRS-oriented tree: it sits
-# on the edge between these two, the first split of every human lineage.
-L0, L1_6 = "L0", "L1'2'3'4'5'6"
+ROOT = "mt-MRCA"  # the most recent common maternal ancestor of all humans
 MIN_INFORMATIVE = 20  # tested tree positions needed to try at all
 MIN_RCRS_MATCH = 0.8  # below this the positions aren't rCRS coordinates
 GENOTYPING_ERROR = 0.002
@@ -49,7 +47,7 @@ POSSIBLE = 0.8
 class Tree:
     names: list[str]
     profiles: list[dict[int, str]]  # differences from rCRS, single bases only
-    lineages: list[list[int]]  # conventional path from L0 / L1'2'3'4'5'6
+    lineages: list[list[int]]  # conventional path from mt-MRCA
     rcrs: str
     occurrences: dict[int, int]  # recurrent mutation events per position
     hotspots: frozenset[int]
@@ -67,8 +65,8 @@ class Tree:
     def defining(self, node: int) -> list[tuple[int, str, str]]:
         """(position, from, to) for the mutations that define ``node``."""
         before = self.parent(node)
-        if before is None:  # top split: compare with the other side
-            before = self.index[L1_6 if self.names[node] == L0 else L0]
+        if before is None:  # the root
+            return []
         out = []
         for pos in sorted(set(self.profiles[node]) | set(self.profiles[before])):
             if self.base(node, pos) != self.base(before, pos):
@@ -104,27 +102,23 @@ def tree() -> Tree:
         profiles.append(profile)
     index = {n: i for i, n in enumerate(names)}
 
-    def ancestors(node: int) -> list[int]:
-        out = [node]
-        while parent[out[-1]] >= 0:
-            out.append(parent[out[-1]])
-        return out
-
-    # The stored tree is rooted at rCRS's own haplogroup (H2a2a1); turn it
-    # back into the conventional orientation.
-    l0, l1_6 = index[L0], index[L1_6]
-    top = ancestors(l1_6)
-    lineages = []
-    for node in range(len(names)):
-        down = ancestors(node)
-        if l0 in down:
-            lineages.append(list(reversed(down[: down.index(l0) + 1])))
-            continue
-        down_set = set(down)
-        common = next(n for n in top if n in down_set)
-        lineages.append(
-            top[: top.index(common) + 1] + list(reversed(down[: down.index(common)]))
-        )
+    # The stored tree is rooted at rCRS's own haplogroup (H2a2a1); walk it
+    # out from mt-MRCA to get the conventional orientation.
+    neighbours: list[list[int]] = [[] for _ in names]
+    for node, up in enumerate(parent):
+        if up >= 0:
+            neighbours[node].append(up)
+            neighbours[up].append(node)
+    root = index[ROOT]
+    lineages: list[list[int]] = [[] for _ in names]
+    lineages[root] = [root]
+    stack = [root]
+    while stack:
+        node = stack.pop()
+        for other in neighbours[node]:
+            if not lineages[other]:
+                lineages[other] = lineages[node] + [other]
+                stack.append(other)
 
     occurrences: Counter[int] = Counter()
     for poly, count in data["occurrences"].items():
@@ -231,11 +225,9 @@ def _lineage(t: Tree, node: int, tested: dict[int, str]) -> list[dict]:
     """Each branch from the top of the tree to the call, with its defining
     mutations and whether the file shows them."""
     steps = []
-    for i, step in enumerate(t.lineages[node]):
+    for step in t.lineages[node]:
         markers = []
-        # The top branch's differences from the other side span the whole
-        # root edge, not just this branch: shown as the top of the tree.
-        for pos, before, after in t.defining(step) if i else []:
+        for pos, before, after in t.defining(step):
             seen = tested.get(pos)
             if t.base(node, pos) != after:
                 status = "reverted"  # changed again further down this line

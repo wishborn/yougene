@@ -35,6 +35,26 @@ def fetch(name: str) -> bytes:
     return data
 
 
+# Re-rooting the tree at rCRS shifted three labels at the top by one node:
+# the node labelled L1'2'3'4'5'6 has L0 as its child (so it is the root,
+# mt-MRCA), the one labelled L2'3'4'5'6 has L1 (so it is L1'2'3'4'5'6), and
+# "L2'3'4'6+" has L5 (so it is L2'3'4'5'6). Restore PhyloTree's names.
+RELABEL = {
+    "L1'2'3'4'5'6": ("mt-MRCA", "L0"),
+    "L2'3'4'5'6": ("L1'2'3'4'5'6", "L1"),
+    "L2'3'4'6+": ("L2'3'4'5'6", "L5"),
+}
+
+
+def relabel_root(nodes: list[list]) -> None:
+    index = {node[0]: i for i, node in enumerate(nodes)}
+    for old, (new, child) in RELABEL.items():
+        if nodes[index[child]][1] != index[old]:
+            raise SystemExit(f"tree layout changed: {child} isn't under {old}")
+    for old, (new, _) in RELABEL.items():
+        nodes[index[old]][0] = new
+
+
 def main() -> None:
     raw = {name: fetch(name) for name in FILES}
     root = ET.fromstring(raw["src/tree.xml"])
@@ -52,6 +72,7 @@ def main() -> None:
             walk(child, len(nodes) - 1)
 
     walk(root, -1)
+    relabel_root(nodes)
     # How often each mutation recurs across the tree (column 3): fast,
     # recurrent sites are weaker evidence of a haplogroup.
     occurrences = {}

@@ -36,14 +36,44 @@ def test_bundled_tree(tree):
 
 def test_lineage_is_conventional(tree):
     lineage = [tree.names[n] for n in tree.lineages[tree.index["U5b1"]]]
-    assert lineage[0] == "L1'2'3'4'5'6"
-    for group in ["L3", "N", "R", "U", "U5", "U5b", "U5b1"]:
-        assert group in lineage
-    assert lineage.index("N") < lineage.index("R") < lineage.index("U5")
-    assert [tree.names[n] for n in tree.lineages[tree.index["L0a"]]][:2] == [
-        "L0",
-        "L0a'b'f'g'k",
-    ]
+    assert lineage[:7] == [
+        "mt-MRCA", "L1'2'3'4'5'6", "L2'3'4'5'6", "L2'3'4'6", "L3'4'6", "L3'4", "L3",
+    ]  # fmt: skip
+    assert (
+        lineage.index("N") < lineage.index("R") < lineage.index("U5") < len(lineage) - 1
+    )
+    assert [tree.names[n] for n in tree.lineages[tree.index["L0a"]]][:3] == [
+        "mt-MRCA", "L0", "L0a'b'f'g'k",
+    ]  # fmt: skip
+
+
+def test_root_labels_restored(tree):
+    """The rCRS re-rooting shifted three labels at the top; the build script
+    restores them. Check with PhyloTree's branching and textbook mutations."""
+
+    def parent(name):
+        return tree.names[tree.lineages[tree.index[name]][-2]]
+
+    assert parent("L0") == "mt-MRCA" and parent("L1'2'3'4'5'6") == "mt-MRCA"
+    assert parent("L1") == "L1'2'3'4'5'6" and parent("L5") == "L2'3'4'5'6"
+    # 2758G/2885T/7146A/8468C arose on the branch to L2'3'4'5'6 (as in rCRS).
+    for pos in (2758, 2885, 7146, 8468):
+        assert pos in tree.profiles[tree.index["L1'2'3'4'5'6"]]
+        assert pos not in tree.profiles[tree.index["L2'3'4'5'6"]]
+    assert "L2'3'4'6+" not in tree.index
+
+
+def test_root_is_never_the_answer(tree):
+    """Tested only at positions that split the two oldest branches, with
+    each side's evidence cancelling out: no maternal line, not "mt-MRCA"."""
+    root = tree.index["mt-MRCA"]
+    l0, l1 = tree.index["L0"], tree.index["L1'2'3'4'5'6"]
+    split = [pos for pos, _, _ in tree.defining(l0)][:12]
+    other = [pos for pos, _, _ in tree.defining(l1)][:12]
+    calls = {p: tree.base(root, p) for p in split + other}
+    calls |= {p: tree.rcrs[p - 1] for p in range(1, 200) if p not in tree.positions}
+    result = mt.classify(calls)
+    assert result.get("haplogroup") != "mt-MRCA"
 
 
 @pytest.mark.parametrize("group", ["H2a2a1", "U5b1", "L3e1", "D4a1", "J1c", "L0a"])
