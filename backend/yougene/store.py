@@ -68,6 +68,18 @@ def sample_path(sample_id: str) -> Path:
     return root() / "samples" / f"{sample_id}.duckdb"
 
 
+def annotation_path(sample_id: str) -> Path:
+    """Findings live beside the sample, rebuilt whenever reference data changes."""
+    return sample_path(sample_id).with_name(f"{sample_id}.annot.duckdb")
+
+
+def open_annotation(sample_id: str):
+    path = annotation_path(sample_id)
+    if not path.exists():
+        return None
+    return connect(path, read_only=True)
+
+
 def new_sample_id() -> str:
     return uuid.uuid4().hex
 
@@ -170,8 +182,10 @@ def delete_sample(sample_id: str) -> bool:
         finally:
             con.close()
         path = sample_path(sample_id)
-        for candidate in (path, path.with_suffix(".duckdb.wal")):
+        annot = annotation_path(sample_id)
+        for candidate in (path, annot):
             candidate.unlink(missing_ok=True)
+            candidate.with_name(candidate.name + ".wal").unlink(missing_ok=True)
     return bool(deleted)
 
 

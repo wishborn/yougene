@@ -1,6 +1,7 @@
 """Turn an uploaded file into a stored sample: unpack, detect, load, check, QC."""
 
 import hashlib
+import logging
 import zipfile
 from collections.abc import Callable
 from datetime import UTC, datetime
@@ -8,9 +9,11 @@ from pathlib import Path
 
 from yougene import importers, store
 from yougene.analysis import qc
+from yougene.annotate import runner
 from yougene.db import connect
 from yougene.importers.base import ImportFailed
 
+log = logging.getLogger("yougene.imports")
 MAX_UNPACKED_BYTES = 600 * 1024 * 1024
 Progress = Callable[[float, str], None]
 
@@ -116,5 +119,12 @@ def run(
     except BaseException:
         final.unlink(missing_ok=True)
         raise
+    if runner.reference_fingerprint() is not None:
+        progress(0.95, "Matching against reference data")
+        try:
+            runner.annotate_sample(sample_id)
+        except Exception:
+            # The sample is stored; annotation can be re-run from the workspace.
+            log.error("annotation after import failed for sample %s", sample_id)
     progress(1.0, "Done")
     return record

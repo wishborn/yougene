@@ -1,1 +1,1 @@
-"""Offline annotation (implementation pending)."""
+"""Offline annotation of samples against the local reference database."""

@@ -2,11 +2,10 @@ import { useCallback, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Navbar, Sidebar, useTheme, type ThemePreference } from "@particle-academy/react-fancy";
 import { api } from "./api";
-import { CallsGrid } from "./components/CallsGrid";
 import { ImportPanel } from "./components/ImportPanel";
-import { QcCard } from "./components/QcCard";
 import { ReferencePanel } from "./components/ReferencePanel";
 import { SampleList } from "./components/SampleList";
+import { SampleView } from "./components/SampleView";
 
 export function App() {
   const theme = useTheme();
@@ -62,8 +61,7 @@ export function App() {
 
           <ReferencePanel />
 
-          {selected && <QcCard sample={selected} dark={theme.resolved === "dark"} />}
-          {selected && <CallsGrid key={selected.id} sampleId={selected.id} />}
+          {selected && <SampleView key={selected.id} sample={selected} dark={theme.resolved === "dark"} />}
 
           <footer className="text-xs text-zinc-500">
             YouGene is not a diagnosis. Consumer DNA arrays are not clinical grade; confirm anything

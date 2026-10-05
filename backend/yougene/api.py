@@ -11,6 +11,7 @@ from fastapi.responses import JSONResponse
 from pydantic import BaseModel, Field
 
 from yougene import imports, store
+from yougene.annotate import runner
 from yougene.genome import CHROMS
 from yougene.jobs import jobs
 from yougene.refdata import manager
@@ -260,7 +261,16 @@ def refdata_install(body: RefdataInstall):
         raise HTTPException(422, f"Unknown reference source {unknown[0]!r}.")
     if jobs.active():
         raise HTTPException(409, "Another job is running. Try again when it finishes.")
-    job = jobs.submit(
-        "refdata", lambda progress: manager.install(ids, progress, refresh=body.refresh)
-    )
+
+    def work(progress):
+        result = manager.install(
+            ids,
+            lambda value, message: progress(value * 0.9, message),
+            refresh=body.refresh,
+        )
+        # New reference data makes every sample's findings stale; refresh them.
+        runner.annotate_all(lambda value, message: progress(0.9 + value * 0.1, message))
+        return result
+
+    job = jobs.submit("refdata", work)
     return {"job_id": job.id}

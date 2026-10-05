@@ -23,3 +23,7 @@ select = ["E", "F", "I", "UP", "B"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
+
+[tool.ruff.lint.per-file-ignores]
+# Test data tables read better one record per line.
+"tests/**" = ["E501"]
