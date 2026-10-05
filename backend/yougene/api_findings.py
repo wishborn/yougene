@@ -1,5 +1,6 @@
 """API for annotation results: ClinVar (health) and GWAS (traits) findings."""
 
+import re
 from typing import Annotated, Literal
 
 from fastapi import APIRouter, HTTPException, Query
@@ -7,7 +8,10 @@ from pydantic import BaseModel
 
 from yougene import store
 from yougene.annotate import runner
+from yougene.annotate.engine import SENSITIVE_GENES
+from yougene.db import connect
 from yougene.jobs import jobs
+from yougene.refdata import manager
 
 router = APIRouter(prefix="/api")
 
@@ -217,3 +221,73 @@ def trait_findings(
         )
     finally:
         con.close()
+
+
+GENE_SYMBOL = re.compile(r"[A-Za-z0-9][A-Za-z0-9._-]{0,30}")
+
+
+@router.get("/samples/{sample_id}/gene/{symbol}")
+def gene_view(sample_id: str, symbol: str):
+    """One gene: how many known disease-linked single-letter variants it has
+    in ClinVar, which of those positions this file read and what was read
+    there, and any findings carried in the gene. Health opt-in required;
+    sensitive genes need their topic opt-in."""
+    if not GENE_SYMBOL.fullmatch(symbol):
+        raise HTTPException(422, "Not a gene symbol.")
+    gene = symbol.upper()
+    topic = SENSITIVE_GENES.get(gene)
+    require_health_consent([topic] if topic else None)
+    _sample_or_404(sample_id)
+    ref = manager.open_reference()
+    if ref is None:
+        raise HTTPException(409, "Install the reference data first.")
+    ref.close()
+    con = connect()
+    try:
+        con.execute(f"ATTACH '{manager.db_path().as_posix()}' AS r (READ_ONLY)")
+        con.execute(
+            f"ATTACH '{store.sample_path(sample_id).as_posix()}' AS s (READ_ONLY)"
+        )
+        cursor = con.execute(
+            """
+            WITH v AS (
+                SELECT chrom, chrom_order, pos, ref, alt, vcv_id, rsid, sig_cat, stars
+                FROM r.clinvar
+                WHERE list_contains(list_transform(genes, g -> upper(g)), ?)
+                  AND sig_cat IN
+                      ('pathogenic', 'likely_pathogenic', 'pathogenic_likely')
+                  AND length(ref) = 1 AND length(alt) = 1
+            )
+            SELECT v.chrom, v.pos, v.ref, v.alt, v.vcv_id, v.rsid, v.sig_cat, v.stars,
+                   k.probe_id, k.alleles, k.call_type
+            FROM v
+            LEFT JOIN s.calls k ON k.chrom_order = v.chrom_order AND k.pos = v.pos
+            ORDER BY v.chrom_order, v.pos, v.vcv_id
+            """,
+            [gene],
+        )
+        names = [d[0] for d in cursor.description]
+        rows = [dict(zip(names, r, strict=True)) for r in cursor.fetchall()]
+    finally:
+        con.close()
+    known = {(r["chrom"], r["pos"], r["alt"]) for r in rows}
+    tested_rows = [r for r in rows if r["call_type"] == "snp"]
+    tested = {(r["chrom"], r["pos"], r["alt"]) for r in tested_rows}
+    carried = [r for r in tested_rows if r["alt"] in (r["alleles"] or "")]
+    return {
+        "gene": gene,
+        "sensitive_topic": topic,
+        "known_pathogenic_snvs": len(known),
+        "tested": len(tested),
+        "carried": carried,
+        "tested_positions": tested_rows[:500],
+        "region": (
+            {
+                "chrom": rows[0]["chrom"],
+                "start": min(r["pos"] for r in rows),
+                "end": max(r["pos"] for r in rows),
+            }  # fmt: skip
+            if rows
+            else None
+        ),
+    }

@@ -91,3 +91,25 @@ def test_variant_detail(env):  # noqa: F811
 
         assert client.get(url, params={"chrom": "1", "pos": 5}).status_code == 404
         assert client.get(url, params={"chrom": "99", "pos": 5}).status_code == 422
+
+
+def test_gene_view(env):  # noqa: F811
+    manager.install()
+    sample = import_sample(env)
+    with TestClient(create_app(), base_url="http://127.0.0.1") as client:
+        url = f"/api/samples/{sample['id']}/gene"
+        assert client.get(f"{url}/GENEA").status_code == 403  # opt-in first
+        client.put("/api/consent", json={"name": "health", "granted": True})
+        view = client.get(f"{url}/genea").json()
+        assert view["gene"] == "GENEA"
+        assert view["known_pathogenic_snvs"] == 1 and view["tested"] == 1
+        assert [c["vcv_id"] for c in view["carried"]] == [11]
+        gened = client.get(f"{url}/GENED").json()
+        assert (
+            gened["tested"] == 1
+            and gened["tested_positions"][0]["probe_id"] == "i7000099"
+        )
+        assert client.get(f"{url}/APOE").status_code == 403  # sensitive topic gate
+        assert client.get(f"{url}/a'b").status_code == 422
+        none = client.get(f"{url}/NOSUCHGENE").json()
+        assert none["known_pathogenic_snvs"] == 0 and none["region"] is None
