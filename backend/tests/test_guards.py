@@ -98,3 +98,31 @@ def test_guard_scans_beyond_old_limit(tmp_path):
     path = tmp_path / "large.txt"
     path.write_bytes(b"# comment\n" * 510000 + b"i7000001\t1\t1000\tAG\n")
     assert guard.check_file(path, tmp_path) == "contains raw genotype rows"
+
+
+@pytest.mark.parametrize(
+    "line",
+    [
+        "rs123\t1\t100\tAG",
+        "rs123\t1\t100\tA\tG",
+        "rs123\t23\t100\t0\t0",
+        '"rs123","1","100","AG"',
+        "rs123,1,100,AG",
+        "1\t100\trs123\tA\tG\t50\tPASS\t.\tGT\t0/1",
+        "chrX\t100\t.\tC\tT,<NON_REF>\t.\t.\tEND=200",
+    ],
+)
+def test_guard_detects_vendor_formats(tmp_path, line):
+    path = tmp_path / "data.txt"
+    path.write_text("# header\n" + line + "\n", encoding="utf-8")
+    assert guard.check_file(path, tmp_path) == "contains raw genotype rows"
+
+
+@pytest.mark.parametrize(
+    "line",
+    ["Chromosome 1\t100 probes", "rsid\tnotes", "| rs123 | 1 | 100 | AG |"],
+)
+def test_guard_ignores_prose(tmp_path, line):
+    path = tmp_path / "notes.md"
+    path.write_text(line + "\n", encoding="utf-8")
+    assert guard.check_file(path, tmp_path) is None

@@ -6,7 +6,6 @@
 
 @theme {
   --color-brand: #5266bd;
-  --color-brand-contrast: #a7b8ff;
 }
 
 body { margin: 0; font-family: ui-sans-serif, system-ui, sans-serif; }

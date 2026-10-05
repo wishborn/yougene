@@ -16,7 +16,7 @@ def main(argv: list[str] | None = None) -> None:
     serve.add_argument(
         "--host", default="127.0.0.1", choices=["127.0.0.1", "localhost", "::1"]
     )
-    serve.add_argument("--port", default=8000, type=int)
+    serve.add_argument("--port", default=8765, type=int)
     args = parser.parse_args(argv)
     if args.command == "version":
         print(__version__)

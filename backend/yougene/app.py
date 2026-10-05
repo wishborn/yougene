@@ -1,8 +1,9 @@
-"""Application factory. Routing and sample handling are pending."""
+"""Application factory. Page routing is pending fancy-inertia-server."""
 
 from fastapi import FastAPI
 
 from yougene import __version__
+from yougene.api import router
 from yougene.security import LoopbackHostMiddleware
 
 
@@ -14,4 +15,5 @@ def create_app() -> FastAPI:
     def health() -> dict[str, str]:
         return {"status": "ok", "version": __version__}
 
+    app.include_router(router)
     return app
