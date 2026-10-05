@@ -1,5 +1,6 @@
 """Turn an uploaded file into a stored sample: unpack, detect, load, check, QC."""
 
+import gzip
 import hashlib
 import logging
 import zipfile
@@ -11,6 +12,7 @@ from yougene import importers, store
 from yougene.analysis import qc
 from yougene.annotate import runner
 from yougene.db import connect
+from yougene.importers import arrays
 from yougene.importers.base import ImportFailed
 
 log = logging.getLogger("yougene.imports")
@@ -26,35 +28,52 @@ def sha256_of(path: Path) -> str:
     return digest.hexdigest()
 
 
+GZIP_MAGIC = bytes([0x1F, 0x8B])
+
+
+def _copy_limited(source, target: Path) -> None:
+    written = 0
+    with target.open("wb") as out:
+        for chunk in iter(lambda: source.read(1024 * 1024), b""):
+            written += len(chunk)
+            if written > MAX_UNPACKED_BYTES:
+                raise ImportFailed("too_large", "The unpacked file is too large.")
+            out.write(chunk)
+
+
 def unpack(path: Path, workdir: Path) -> Path:
-    """Return a plain text file: ``path`` itself, or the one .txt in a zip."""
+    """Return a plain text file: ``path`` itself, the one .txt/.csv inside a
+    zip, or the decompressed content of a .gz (FamilyTreeDNA ships .csv.gz)."""
+    with path.open("rb") as handle:
+        magic = handle.read(2)
+    if magic == GZIP_MAGIC:
+        target = workdir / "unpacked.txt"
+        try:
+            with gzip.open(path, "rb") as source:
+                _copy_limited(source, target)
+        except (OSError, EOFError) as error:
+            raise ImportFailed("unreadable", "The .gz file is damaged.") from error
+        return target
     if not zipfile.is_zipfile(path):
         return path
     with zipfile.ZipFile(path) as archive:
         members = [
             m
             for m in archive.infolist()
-            if not m.is_dir() and m.filename.lower().endswith(".txt")
+            if not m.is_dir() and m.filename.lower().endswith((".txt", ".csv"))
         ]
         if len(members) != 1:
             raise ImportFailed(
                 "zip_contents",
-                "The zip file should contain exactly one .txt raw data file "
+                "The zip file should contain exactly one .txt or .csv raw data file "
                 f"(found {len(members)}).",
             )
         member = members[0]
         if member.file_size > MAX_UNPACKED_BYTES:
             raise ImportFailed("too_large", "The file inside the zip is too large.")
         target = workdir / "unpacked.txt"
-        written = 0
-        with archive.open(member) as source, target.open("wb") as out:
-            for chunk in iter(lambda: source.read(1024 * 1024), b""):
-                written += len(chunk)
-                if written > MAX_UNPACKED_BYTES:
-                    raise ImportFailed(
-                        "too_large", "The file inside the zip is too large."
-                    )
-                out.write(chunk)
+        with archive.open(member) as source:
+            _copy_limited(source, target)
     return target
 
 
@@ -87,9 +106,12 @@ def run(
         importer.load(con, text)
         progress(0.6, "Checking genome build")
         build = importer.confirm_build(con, detection)
+        progress(0.7, "Checking chromosome copy numbers")
+        ploidy = arrays.fix_ploidy(con, qc.infer_sex(con)["inferred"])
         progress(0.75, "Computing quality summary")
         summary = qc.summarise(con)
         summary["build_evidence"] = build
+        summary["ploidy_normalisation"] = ploidy
         progress(0.9, "Saving")
         con.execute("CREATE INDEX calls_probe ON calls (probe_id)")
         con.execute("CHECKPOINT")
