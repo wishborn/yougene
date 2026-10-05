@@ -58,12 +58,12 @@ export function ImportPanel({ onImported }: Props) {
       <div>
         <h2 id="import-title" className="font-semibold">Import a raw data file</h2>
         <p className="mt-1 text-sm text-zinc-500 dark:text-zinc-400">
-          23andMe raw data, as the .txt file or the .zip you downloaded. The file stays on this computer.
+          Raw data from 23andMe, AncestryDNA, MyHeritage, FamilyTreeDNA or Living DNA: the .txt/.csv file or the .zip/.gz you downloaded. The file stays on this computer.
         </p>
       </div>
       <FileUpload value={files}
         onChange={next => { setFiles(next); setJobId(null); setDuplicateOf(null); }}
-        accept=".txt,.zip" multiple={false} disabled={running}>
+        accept=".txt,.csv,.zip,.gz" multiple={false} disabled={running}>
         <FileUpload.Dropzone className="text-sm">Drop the file here, or click to choose it</FileUpload.Dropzone>
         <FileUpload.List />
       </FileUpload>

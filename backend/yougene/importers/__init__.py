@@ -8,8 +8,10 @@ from pathlib import Path
 
 from yougene.importers import twentythree
 from yougene.importers.base import Detection, ImportFailed
+from yougene.importers.vendors import VENDORS
 
-IMPORTERS = [twentythree]
+# 23andMe first: its comment header is the most specific signature.
+IMPORTERS = [twentythree, *VENDORS]
 
 
 def detect(path: Path) -> tuple[object, Detection]:
@@ -21,7 +23,8 @@ def detect(path: Path) -> tuple[object, Detection]:
     raise ImportFailed(
         "unrecognised_format",
         "This file isn't a format YouGene can read yet. "
-        "Supported today: 23andMe raw data (.txt, or the .zip download).",
+        "Supported today: raw data from 23andMe, AncestryDNA, MyHeritage, "
+        "FamilyTreeDNA and Living DNA (the .txt/.csv file or the .zip download).",
     )
 
 

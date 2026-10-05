@@ -169,3 +169,61 @@ def main() -> None:
 
 if __name__ == "__main__":
     main()
+
+
+VENDOR_FORMATS = ("ancestrydna", "myheritage", "ftdna", "livingdna")
+ANCESTRY_CHROM = {"X": "23", "Y": "24", "MT": "26"}
+
+
+def _two_letters(call: str) -> tuple[str, str]:
+    """Vendors that always write two alleles double single-copy calls."""
+    if call == "--":
+        return "-", "-"
+    return (call[0], call[-1]) if len(call) == 2 else (call, call)
+
+
+def write_vendor_fixture(
+    path: Path, vendor: str, sex: str, seed: int, rows: int
+) -> Path:
+    """The same invented calls as ``write_fixture``, in another vendor's layout.
+    For tests only (generated at runtime, never committed)."""
+    if vendor not in VENDOR_FORMATS:
+        raise ValueError(f"vendor must be one of {VENDOR_FORMATS}")
+    calls, _ = generate(sex, seed, rows)
+    lines: list[str] = []
+    if vendor == "ancestrydna":
+        lines += [
+            "#AncestryDNA raw data download",
+            "#" + MARKER[2:],
+            "#Genotypes are on the forward strand of human reference build 37.",
+            "rsid\tchromosome\tposition\tallele1\tallele2",
+        ]
+        for probe, chrom, pos, call in calls:
+            code = ANCESTRY_CHROM.get(chrom, chrom)
+            if chrom == "X" and is_x_par(pos):
+                code = "25"
+            a, b = _two_letters(call)
+            a, b = ("0", "0") if call == "--" else (a, b)
+            lines.append(f"{probe}\t{code}\t{pos}\t{a}\t{b}")
+    elif vendor in ("myheritage", "ftdna"):
+        if vendor == "myheritage":
+            lines += ["# MyHeritage DNA raw data.", "#" + MARKER[2:],
+                      "# Reference build 37"]  # fmt: skip
+        lines.append("RSID,CHROMOSOME,POSITION,RESULT")
+        for index, (probe, chrom, pos, call) in enumerate(calls):
+            a, b = _two_letters(call)
+            result = "--" if call == "--" else a + b
+            if vendor == "myheritage" and index % 2:
+                # newer MyHeritage files triple-quote every value
+                lines.append(f'"""{probe}""","""{chrom}""","""{pos}""","""{result}"""')
+            else:
+                lines.append(f'"{probe}","{chrom}","{pos}","{result}"')
+            if vendor == "ftdna" and index == len(calls) // 2:
+                lines.append("RSID,CHROMOSOME,POSITION,RESULT")  # concatenated files
+    else:  # livingdna: 23andMe-like layout without a header row
+        lines += ["# Living DNA customer genotype data download file", "#" + MARKER[2:],
+                  "# Human Genome Reference Build 37 (GRCh37.p13)"]  # fmt: skip
+        lines += [f"{p}\t{c}\t{pos}\t{g}" for p, c, pos, g in calls]
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text("\n".join(lines) + "\n", encoding="utf-8", newline="\n")
+    return path

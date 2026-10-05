@@ -38,7 +38,7 @@ This workspace runs one site at **https://yougene.gen** with command `python scr
 
 ## Importing
 
-- 23andMe raw data: the `.txt` file, or the `.zip` download containing it.
+- Raw data from 23andMe, AncestryDNA, MyHeritage, FamilyTreeDNA (Family Finder) and Living DNA: the `.txt`/`.csv` file, the `.zip` download, or FamilyTreeDNA's `.csv.gz`. Vendor chromosome codes (AncestryDNA 23-26) are mapped, and single-copy calls written as two letters (AncestryDNA on X/Y/MT) are reduced to one letter once sex is inferred.
 - Every probe is kept: no-calls, 23andMe internal `i` ids, insertion/deletion probes (`D`/`I`, shown but never interpreted) and positions measured by more than one probe (grouped, with disagreements flagged).
 - The genome build must be confirmed as GRCh37 by the header and/or five well-known reference SNPs; other builds are refused for now.
 - Sex chromosomes are inferred from X heterozygosity outside the pseudo-autosomal regions and the Y call rate; conflicting signals are reported as unknown.
