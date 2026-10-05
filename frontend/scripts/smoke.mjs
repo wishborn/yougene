@@ -86,6 +86,7 @@ try {
   const withReference = reference.ready === true;
   if (withReference) {
     await page.getByRole("tab", { name: "Traits" }).click();
+    await page.getByTestId("known-trait").nth(5).waitFor();
     await page.getByTestId("traits-total").filter({ hasText: /^[1-9][\d,]* associations$/ }).waitFor();
     await page.getByRole("tab", { name: "Chromosomes" }).click();
     await page.getByTestId("karyotype").waitFor();

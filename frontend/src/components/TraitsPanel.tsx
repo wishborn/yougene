@@ -3,6 +3,7 @@ import { keepPreviousData, useQuery } from "@tanstack/react-query";
 import { Badge, Callout, Input, Pagination, Switch } from "@particle-academy/react-fancy";
 import { FancyDataGrid, type FancyGridColumn, type FancyGridState } from "@particle-academy/fancy-grid";
 import { findingsApi, type TraitFinding } from "../api";
+import { KnownTraits } from "./KnownTraits";
 
 const PAGE_SIZE = 25;
 const INITIAL: FancyGridState = { sorting: [], filters: [], rowSelection: {}, pagination: { pageIndex: 0, pageSize: PAGE_SIZE } };
@@ -79,6 +80,8 @@ export function TraitsPanel({ sampleId }: { sampleId: string }) {
   return (
     <section className="space-y-3" aria-labelledby="traits-title">
       <h2 id="traits-title" className="sr-only">Traits</h2>
+      <KnownTraits sampleId={sampleId} />
+      <h3 className="pt-2 font-semibold">Published trait associations</h3>
       <Callout color="zinc">
         These are published associations where you carry at least one copy of the allele the study linked to the trait.
         Most risk alleles are common and each changes the odds only slightly, so a match here is not a prediction.
