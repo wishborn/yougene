@@ -246,3 +246,14 @@ def test_consent_round_trip_and_withdrawal(client):
     client.put("/api/consent", json={"name": "health", "granted": True})
     client.request("DELETE", "/api/data", json={"confirm": "DELETE ALL"})
     assert client.get("/api/consent").json() == {}  # delete-all clears consent
+
+
+def test_refuses_upload_when_disk_is_low(client, monkeypatch):
+    import collections
+
+    usage = collections.namedtuple("usage", "total used free")
+    monkeypatch.setattr(
+        "yougene.api.shutil.disk_usage", lambda p: usage(1, 1, 10 * 1024 * 1024)
+    )
+    assert upload(client).status_code == 507
+    assert not any(store.tmp_dir().iterdir())

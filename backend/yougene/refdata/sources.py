@@ -58,4 +58,15 @@ CYTOBAND = Source(
     purpose="Chromosome band layout for the chromosome explorer.",
 )
 
-SOURCES = {s.id: s for s in (CLINVAR, GWAS, CYTOBAND)}
+LIFTOVER = Source(
+    id="liftover",
+    title="GRCh38 to GRCh37 conversion (UCSC chain)",
+    url="https://hgdownload.soe.ucsc.edu/goldenPath/hg38/liftOver/hg38ToHg19.over.chain.gz",
+    filename="hg38ToHg19.over.chain.gz",
+    license="UCSC Genome Browser data, free for use.",
+    attribution="UCSC Genome Browser liftOver chain hg38ToHg19.",
+    approx_mb=2,
+    purpose="Only needed to read sequencing (VCF) files aligned to GRCh38.",
+)
+
+SOURCES = {s.id: s for s in (CLINVAR, GWAS, CYTOBAND, LIFTOVER)}
