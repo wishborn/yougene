@@ -16,7 +16,7 @@ dependencies = [
     "platformdirs>=4.3",
     "duckdb>=1.2",
     # Inertia server adapter from the Fancy kit; not on PyPI yet, pinned to a commit.
-    "fancy-inertia-server @ git+https://github.com/Particle-Academy/fancy-inertia-server@613360a878870f33a49b5ed8e8ad5c5bd2a1f525",
+    "fancy-inertia-server @ git+https://github.com/Particle-Academy/fancy-inertia-server@1cb476d3bd463c2ec9c2f4210891808cc66edbbd",
 ]
 
 [project.optional-dependencies]
